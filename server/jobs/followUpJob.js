@@ -19,7 +19,7 @@ const startFollowUpJob = () => {
       if (daysSince >= 3) {
         try {
           await resend.emails.send({
-            from: 'GET Logistics LLC <erick@getlogistics.llc>',,
+            from: "GET Logistics LLC <erick@getlogistics.llc>",
             to: contact.email,
             subject: "Following Up — GET Logistics LLC",
             text: `Hi ${contact.name},\n\nI wanted to follow up on my previous email regarding GET Logistics LLC. We specialize in freight brokerage and would love to learn more about your shipping needs.\n\nWould you have 10 minutes for a quick call this week?\n\nBest regards,\nErick Hernandez\nGET Logistics LLC\n303-304-2894\ngetlogisticsllc.outreach@gmail.com`,
