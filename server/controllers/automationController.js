@@ -33,7 +33,7 @@ Best regards,
 Erick Hernandez
 GET Logistics LLC
 303-304-2894
-getlogisticsllc.outreach@gmail.com`,
+erick@getlogistics.llc`,
           },
         ],
       });
@@ -44,7 +44,11 @@ getlogisticsllc.outreach@gmail.com`,
         from: "GET Logistics LLC <erick@getlogistics.llc>",
         to: contact.email,
         subject,
-        text: message,
+        html: `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+    ${message.replace(/\n/g, "<br>")}
+  </div>
+`,
       });
 
       await Contact.findOneAndUpdate(

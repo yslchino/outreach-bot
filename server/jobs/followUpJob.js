@@ -22,7 +22,19 @@ const startFollowUpJob = () => {
             from: "GET Logistics LLC <erick@getlogistics.llc>",
             to: contact.email,
             subject: "Following Up — GET Logistics LLC",
-            text: `Hi ${contact.name},\n\nI wanted to follow up on my previous email regarding GET Logistics LLC. We specialize in freight brokerage and would love to learn more about your shipping needs.\n\nWould you have 10 minutes for a quick call this week?\n\nBest regards,\nErick Hernandez\nGET Logistics LLC\n303-304-2894\ngetlogisticsllc.outreach@gmail.com`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <p>Hi ${contact.name},</p>
+                <p>I wanted to follow up on my previous email regarding GET Logistics LLC. We specialize in freight brokerage and would love to learn more about your shipping needs.</p>
+                <p>Would you have 10 minutes for a quick call this week?</p>
+                <br>
+                <p>Best regards,<br>
+                Erick Hernandez<br>
+                GET Logistics LLC<br>
+                303-304-2894<br>
+                erick@getlogistics.llc</p>
+              </div>
+            `,
           });
           contact.followUpSent = true;
           await contact.save();

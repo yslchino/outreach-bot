@@ -22,7 +22,7 @@ Best regards,
 Erick Hernandez
 GET Logistics LLC
 303-304-2894
-getlogisticsllc.outreach@gmail.com`,
+erick@getlogistics.llc`,
         },
       ],
     });

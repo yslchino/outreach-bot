@@ -54,7 +54,11 @@ const sendTest = async (req, res) => {
       from: "GET Logistics LLC <erick@getlogistics.llc>",
       to,
       subject,
-      text: message,
+      html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+      ${message.replace(/\n/g, "<br>")}
+    </div>
+  `,
     });
     res.json({ success: true });
   } catch (err) {
