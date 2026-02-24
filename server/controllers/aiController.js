@@ -22,7 +22,7 @@ Best regards,
 Erick Hernandez
 GET Logistics LLC
 [private phone removed]
-getlogisticsllc.outreach@gmail.com`,
+erick@getlogistics.llc`,
         },
       ],
     });
