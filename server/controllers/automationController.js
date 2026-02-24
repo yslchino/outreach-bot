@@ -78,7 +78,7 @@ erick@getlogistics.llc`,
   res.json(results);
 };
 
-const parseExcel = (req, res) => {
+const parseExcel = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -86,7 +86,7 @@ const parseExcel = (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet);
 
-    const contacts = rows
+    const allContacts = rows
       .filter((row) => row["Email Address"])
       .map((row) => ({
         name: `${row["First Name"] || ""} ${row["Last Name"] || ""}`.trim(),
@@ -98,8 +98,23 @@ const parseExcel = (req, res) => {
         industry: row["Primary Industry"] || "",
       }));
 
+    // Get already contacted emails from MongoDB
+    const alreadyContacted = await Contact.find({}, "email");
+    const contactedEmails = new Set(
+      alreadyContacted.map((c) => c.email.toLowerCase()),
+    );
+
+    // Filter out already contacted
+    const newContacts = allContacts.filter(
+      (c) => !contactedEmails.has(c.email.toLowerCase()),
+    );
+
     fs.unlinkSync(req.file.path);
-    res.json({ total: contacts.length, contacts });
+    res.json({
+      total: newContacts.length,
+      skipped: allContacts.length - newContacts.length,
+      contacts: newContacts,
+    });
   } catch (err) {
     console.error("Excel parse error:", err);
     res.status(500).json({ error: err.message });

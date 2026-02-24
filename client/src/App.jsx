@@ -311,7 +311,9 @@ export default function App() {
 
   const parseExcel = async () => {
     if (!excelFile)
-      return setStatus("error:Please select an Excel file first.");
+      return setStatus(
+        `success:${data.total} new contacts loaded. ${data.skipped} already contacted — skipped automatically.`,
+      );
     setLoading(true);
     const formData = new FormData();
     formData.append("excelFile", excelFile);
