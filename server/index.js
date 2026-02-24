@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 5000;
 const gmailRoutes = require("./routes/gmail");
 app.use("/", gmailRoutes);
 
+const { startReplyDetectionJob } = require("./jobs/replyDetectionJob");
+
 app.use(cors());
 app.use(express.json());
 
@@ -33,6 +35,7 @@ mongoose
     app.listen(PORT, () => {
       console.log(`Server listening on port ${PORT}`);
       startFollowUpJob();
+      startReplyDetectionJob();
     });
   })
   .catch((err) => console.error("MongoDB connection error:", err));
