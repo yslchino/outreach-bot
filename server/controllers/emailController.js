@@ -18,7 +18,7 @@ const sendOutreach = async (req, res) => {
       for (const contact of results) {
         try {
           await resend.emails.send({
-            from: 'GET Logistics LLC <erick@getlogistics.llc>',,
+            from: "GET Logistics LLC <erick@getlogistics.llc>",
             to: contact.email,
             subject: subject,
             text: message.replace("{{name}}", contact.name || "there"),
