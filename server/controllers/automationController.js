@@ -41,7 +41,7 @@ getlogisticsllc.outreach@gmail.com`,
       const message = aiResponse.content[0].text;
 
       await resend.emails.send({
-        from: 'GET Logistics LLC <erick@getlogistics.llc>',,
+        from: "GET Logistics LLC <erick@getlogistics.llc>",
         to: contact.email,
         subject,
         text: message,
