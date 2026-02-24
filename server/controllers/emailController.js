@@ -18,7 +18,7 @@ const sendOutreach = async (req, res) => {
       for (const contact of results) {
         try {
           await resend.emails.send({
-            from: "GET Logistics LLC <onboarding@resend.dev>",
+            from: 'GET Logistics LLC <erick@getlogistics.llc>',,
             to: contact.email,
             subject: subject,
             text: message.replace("{{name}}", contact.name || "there"),
@@ -36,7 +36,7 @@ const sendFollowUp = async (req, res) => {
   const { to, subject, message } = req.body;
   try {
     await resend.emails.send({
-      from: "GET Logistics LLC <onboarding@resend.dev>",
+      from: "GET Logistics LLC <erick@getlogistics.llc>",
       to,
       subject,
       text: message,
@@ -51,7 +51,7 @@ const sendTest = async (req, res) => {
   const { to, subject, message } = req.body;
   try {
     await resend.emails.send({
-      from: "GET Logistics LLC <onboarding@resend.dev>",
+      from: "GET Logistics LLC <erick@getlogistics.llc>",
       to,
       subject,
       text: message,
