@@ -13,6 +13,9 @@ const { startFollowUpJob } = require("./jobs/followUpJob");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const gmailRoutes = require("./routes/gmail");
+app.use("/", gmailRoutes);
+
 app.use(cors());
 app.use(express.json());
 
