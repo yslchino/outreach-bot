@@ -185,6 +185,8 @@ const css = `
   .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 600; transition: all 0.15s; }
   .btn-sm-teal { background: rgba(13,110,110,0.25); color: #10b981; }
   .btn-sm-teal:hover { background: #0d6e6e; color: #fff; }
+  .btn-sm-view { background: rgba(96,165,250,0.1); color: #60a5fa; }
+  .btn-sm-view:hover { background: rgba(96,165,250,0.25); color: #93c5fd; }
 
   .contact-preview-table { margin-top: 1rem; max-height: 320px; overflow-y: auto; border-radius: 8px; border: 1px solid #1a2535; }
 
@@ -192,6 +194,46 @@ const css = `
   .info-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: #080c14; border-radius: 8px; border: 1px solid #1a2535; }
   .info-item-label { font-size: 0.8rem; color: #4a6080; }
   .info-item-value { font-size: 1rem; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+  /* Email Viewer Modal */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: #0d1520; border: 1px solid #1e2d40;
+    border-radius: 16px; padding: 2rem;
+    width: 90%; max-width: 640px; max-height: 85vh;
+    overflow-y: auto; position: relative;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 1.5rem;
+  }
+  .modal-title { font-size: 1.1rem; font-weight: 600; color: #fff; }
+  .modal-subtitle { font-size: 0.78rem; color: #4a6080; margin-top: 0.2rem; font-family: 'DM Mono', monospace; }
+  .modal-close {
+    background: #111927; border: 1px solid #1a2535; color: #4a6080;
+    width: 32px; height: 32px; border-radius: 8px;
+    cursor: pointer; font-size: 1rem; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .modal-close:hover { color: #fff; border-color: #2a4a6f; }
+  .modal-meta { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .modal-meta-row { display: flex; gap: 0.5rem; font-size: 0.83rem; }
+  .modal-meta-label { color: #4a6080; min-width: 60px; }
+  .modal-meta-value { color: #8ba3c0; font-family: 'DM Mono', monospace; }
+  .modal-body {
+    background: #080c14; border: 1px solid #1a2535;
+    border-radius: 10px; padding: 1.25rem;
+    font-size: 0.875rem; line-height: 1.8;
+    color: #c0cfe0; white-space: pre-wrap;
+    font-family: 'DM Mono', monospace;
+  }
+  .modal-footer { margin-top: 1rem; font-size: 0.75rem; color: #2a3d52; text-align: right; }
 `;
 
 export default function App() {
@@ -219,6 +261,7 @@ export default function App() {
 
   const [contacts, setContacts] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [selectedContact, setSelectedContact] = useState(null);
 
   const authHeaders = {
     "Content-Type": "application/json",
@@ -311,9 +354,7 @@ export default function App() {
 
   const parseExcel = async () => {
     if (!excelFile)
-      return setStatus(
-        `success:${data.total} new contacts loaded. ${data.skipped} already contacted — skipped automatically.`,
-      );
+      return setStatus("error:Please select an Excel file first.");
     setLoading(true);
     const formData = new FormData();
     formData.append("excelFile", excelFile);
@@ -325,7 +366,9 @@ export default function App() {
       });
       const data = await res.json();
       setParsedContacts(data.contacts);
-      setStatus(`success:${data.total} contacts loaded successfully.`);
+      setStatus(
+        `success:${data.total} new contacts loaded.${data.skipped ? ` ${data.skipped} already contacted — skipped automatically.` : ""}`,
+      );
     } catch {
       setStatus(
         "error:Failed to read the file. Please ensure it is a valid .xlsx file.",
@@ -591,7 +634,9 @@ export default function App() {
                               fontSize: "0.78rem",
                             }}
                           >
-                            {new Date(c.sentAt).toLocaleDateString()}
+                            {c.sentAt
+                              ? new Date(c.sentAt).toLocaleDateString()
+                              : "—"}
                           </td>
                         </tr>
                       ))}
@@ -993,7 +1038,7 @@ export default function App() {
                           "Date Sent",
                           "Follow-up",
                           "Status",
-                          "",
+                          "Actions",
                         ].map((h) => (
                           <th key={h}>{h}</th>
                         ))}
@@ -1022,7 +1067,9 @@ export default function App() {
                               fontSize: "0.78rem",
                             }}
                           >
-                            {new Date(c.sentAt).toLocaleDateString()}
+                            {c.sentAt
+                              ? new Date(c.sentAt).toLocaleDateString()
+                              : "—"}
                           </td>
                           <td>
                             {c.followUpSent ? (
@@ -1039,14 +1086,28 @@ export default function App() {
                             )}
                           </td>
                           <td>
-                            {!c.replied && (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "0.4rem",
+                                alignItems: "center",
+                              }}
+                            >
+                              {!c.replied && (
+                                <button
+                                  className="btn-sm btn-sm-teal"
+                                  onClick={() => markReplied(c.email)}
+                                >
+                                  Mark Replied
+                                </button>
+                              )}
                               <button
-                                className="btn-sm btn-sm-teal"
-                                onClick={() => markReplied(c.email)}
+                                className="btn-sm btn-sm-view"
+                                onClick={() => setSelectedContact(c)}
                               >
-                                Mark Replied
+                                View Email
                               </button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1058,6 +1119,63 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* EMAIL VIEWER MODAL */}
+      {selectedContact && (
+        <div className="modal-overlay" onClick={() => setSelectedContact(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">
+                  {selectedContact.name} — {selectedContact.company}
+                </div>
+                <div className="modal-subtitle">{selectedContact.email}</div>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setSelectedContact(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-meta">
+              <div className="modal-meta-row">
+                <span className="modal-meta-label">Subject:</span>
+                <span className="modal-meta-value">
+                  {selectedContact.subject || "—"}
+                </span>
+              </div>
+              <div className="modal-meta-row">
+                <span className="modal-meta-label">To:</span>
+                <span className="modal-meta-value">
+                  {selectedContact.email}
+                </span>
+              </div>
+              <div className="modal-meta-row">
+                <span className="modal-meta-label">Status:</span>
+                <span className="modal-meta-value">
+                  {selectedContact.replied ? "✅ Replied" : "⏳ Awaiting Reply"}
+                  {selectedContact.followUpSent ? " · Follow-up Sent" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-body">
+              {selectedContact.emailBody
+                ? selectedContact.emailBody
+                : "No email content saved for this contact.\n\nNote: Only emails sent after this feature was added will have saved content."}
+            </div>
+
+            <div className="modal-footer">
+              Sent:{" "}
+              {selectedContact.sentAt
+                ? new Date(selectedContact.sentAt).toLocaleString()
+                : "Unknown"}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

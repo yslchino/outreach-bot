@@ -134,9 +134,23 @@ const markReplied = async (req, res) => {
   const { email } = req.body;
   try {
     const contact = await Contact.findOneAndUpdate(
-      { email },
-      { replied: true },
-      { new: true },
+      { email: contact.email },
+      {
+        name: contact.name,
+        email: contact.email,
+        company: contact.company || "",
+        title: contact.title || "",
+        city: contact.city || "",
+        state: contact.state || "",
+        industry: contact.industry || "",
+        status: "sent",
+        sentAt: new Date(),
+        followUpSent: false,
+        replied: false,
+        subject: subject,
+        emailBody: message,
+      },
+      { upsert: true, new: true },
     );
     if (!contact) return res.status(404).json({ error: "Contact not found" });
     res.json({ success: true });

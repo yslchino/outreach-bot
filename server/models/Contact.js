@@ -3,16 +3,18 @@ const mongoose = require("mongoose");
 const contactSchema = new mongoose.Schema(
   {
     name: String,
-    email: { type: String, required: true, unique: true },
+    email: { type: String, unique: true },
     company: String,
     title: String,
     city: String,
     state: String,
     industry: String,
-    status: { type: String, default: "sent" },
-    sentAt: { type: Date, default: Date.now },
+    status: { type: String, default: "pending" },
+    sentAt: Date,
     followUpSent: { type: Boolean, default: false },
     replied: { type: Boolean, default: false },
+    subject: String,
+    emailBody: String,
   },
   { timestamps: true },
 );
