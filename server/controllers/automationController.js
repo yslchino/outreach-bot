@@ -65,6 +65,8 @@ erick@getlogistics.llc`,
           sentAt: new Date(),
           followUpSent: false,
           replied: false,
+          subject: subject,
+          emailBody: message,
         },
         { upsert: true, new: true },
       );
@@ -134,23 +136,9 @@ const markReplied = async (req, res) => {
   const { email } = req.body;
   try {
     const contact = await Contact.findOneAndUpdate(
-      { email: contact.email },
-      {
-        name: contact.name,
-        email: contact.email,
-        company: contact.company || "",
-        title: contact.title || "",
-        city: contact.city || "",
-        state: contact.state || "",
-        industry: contact.industry || "",
-        status: "sent",
-        sentAt: new Date(),
-        followUpSent: false,
-        replied: false,
-        subject: subject,
-        emailBody: message,
-      },
-      { upsert: true, new: true },
+      { email },
+      { replied: true },
+      { new: true },
     );
     if (!contact) return res.status(404).json({ error: "Contact not found" });
     res.json({ success: true });
