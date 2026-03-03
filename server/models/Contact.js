@@ -12,6 +12,8 @@ const contactSchema = new mongoose.Schema(
     status: { type: String, default: "pending" },
     sentAt: Date,
     followUpSent: { type: Boolean, default: false },
+    followUpSentAt: Date,
+    followUpBody: String,
     replied: { type: Boolean, default: false },
     subject: String,
     emailBody: String,
