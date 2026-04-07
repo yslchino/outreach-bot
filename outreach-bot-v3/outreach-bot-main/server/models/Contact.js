@@ -10,15 +10,20 @@ const contactSchema = new mongoose.Schema(
     state: String,
     industry: String,
     status: { type: String, default: "pending" },
+    // Initial email
+    subject: String,
+    emailBody: String,
     sentAt: Date,
+    // Follow-up
     followUpSent: { type: Boolean, default: false },
     followUpSentAt: Date,
     followUpBody: String,
+    followUpSubject: String,
+    // Reply
     replied: { type: Boolean, default: false },
-    subject: String,
-    emailBody: String,
+    repliedAt: Date,
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Contact", contactSchema);

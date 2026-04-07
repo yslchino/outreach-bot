@@ -3,6 +3,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const Contact = require("../models/Contact");
+const { buildEmailHTML } = require("./emailController");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -18,16 +19,27 @@ const autoSendToAll = async (req, res) => {
     try {
       const aiResponse = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
+        max_tokens: 600,
         messages: [
           {
             role: "user",
-            content: `You are an outreach assistant for GET Logistics LLC, a freight broker business.
-Write a professional, concise cold outreach email to ${contact.name}, ${contact.title || "a professional"} at ${contact.company || "their company"} in ${contact.city || ""}, ${contact.state || ""}.
-Their industry is: ${contact.industry || "Transportation/Logistics"}.
-Context: ${context || "Introducing GET Logistics LLC and our freight brokerage services."}
-Keep it under 150 words, friendly, and end with a clear call to action.
-Always end the email with exactly this signature:
+            content: `You are writing a cold outreach email on behalf of Erick Hernandez at GET Logistics LLC, a freight brokerage.
+
+Recipient: ${contact.name}
+Title: ${contact.title || ""}
+Company: ${contact.company || "their company"}
+Location: ${contact.city || ""}${contact.state ? ", " + contact.state : ""}
+Industry: ${contact.industry || "Transportation/Logistics"}
+Extra context: ${context || "none"}
+
+Rules:
+- 100-130 words max
+- Open with something specific to their industry or location — NOT "I hope this finds you well"
+- One clear value proposition about freight brokerage (faster coverage, better rates, carrier network)
+- One soft call to action (quick call, reply to this email)
+- No exclamation marks, no ALL CAPS, no spam words (FREE, GUARANTEED, ACT NOW)
+- Plain conversational tone — like a real person wrote it
+- End with EXACTLY this signature, nothing after it:
 
 Best regards,
 Erick Hernandez
@@ -41,14 +53,14 @@ erick@getlogistics.llc`,
       const message = aiResponse.content[0].text;
 
       await resend.emails.send({
-        from: "GET Logistics LLC <erick@getlogistics.llc>",
+        from: "Erick Hernandez <erick@getlogistics.llc>",
         to: contact.email,
         subject,
-        html: `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-    ${message.replace(/\n/g, "<br>")}
-  </div>
-`,
+        html: buildEmailHTML(message),
+        headers: {
+          "List-Unsubscribe": "<mailto:erick@getlogistics.llc?subject=unsubscribe>",
+          "X-Entity-Ref-ID": `getlogistics-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        },
       });
 
       await Contact.findOneAndUpdate(
@@ -65,13 +77,16 @@ erick@getlogistics.llc`,
           sentAt: new Date(),
           followUpSent: false,
           replied: false,
-          subject: subject,
+          subject,
           emailBody: message,
         },
-        { upsert: true, new: true },
+        { upsert: true, new: true }
       );
 
       results.sent++;
+
+      // Small delay between sends to avoid rate limits
+      await new Promise((r) => setTimeout(r, 500));
     } catch (err) {
       results.errors.push({ email: contact.email, error: err.message });
     }
@@ -100,15 +115,13 @@ const parseExcel = async (req, res) => {
         industry: row["Primary Industry"] || "",
       }));
 
-    // Get already contacted emails from MongoDB
     const alreadyContacted = await Contact.find({}, "email");
     const contactedEmails = new Set(
-      alreadyContacted.map((c) => c.email.toLowerCase()),
+      alreadyContacted.map((c) => c.email.toLowerCase())
     );
 
-    // Filter out already contacted
     const newContacts = allContacts.filter(
-      (c) => !contactedEmails.has(c.email.toLowerCase()),
+      (c) => !contactedEmails.has(c.email.toLowerCase())
     );
 
     fs.unlinkSync(req.file.path);
@@ -137,8 +150,8 @@ const markReplied = async (req, res) => {
   try {
     const contact = await Contact.findOneAndUpdate(
       { email },
-      { replied: true },
-      { new: true },
+      { replied: true, repliedAt: new Date() },
+      { new: true }
     );
     if (!contact) return res.status(404).json({ error: "Contact not found" });
     res.json({ success: true });
