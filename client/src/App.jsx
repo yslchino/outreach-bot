@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const API = "https://get-logistics-llc-outreach.up.railway.app/api";
+import API from "./config.js";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
