@@ -35,7 +35,6 @@ const css = `
   ::-webkit-scrollbar-track{background:var(--bg);}
   ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
 
-  /* ── LOGIN ── */
   .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);position:relative;overflow:hidden;}
   .login-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:48px 48px;}
   .login-glow{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);}
@@ -52,7 +51,6 @@ const css = `
   .login-btn:hover{background:#e8edfc;}
   .login-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
-  /* ── SHELL ── */
   .app{display:flex;flex-direction:column;min-height:100vh;}
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.75rem;height:58px;background:var(--navy);position:sticky;top:0;z-index:100;box-shadow:0 1px 0 rgba(255,255,255,0.06);}
   .brand{display:flex;align-items:center;gap:0.65rem;}
@@ -72,36 +70,28 @@ const css = `
   .btn-signout{background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);padding:0.32rem 0.8rem;border-radius:7px;cursor:pointer;font-size:0.75rem;font-family:'Inter',sans-serif;transition:all 0.13s;}
   .btn-signout:hover{color:#fff;border-color:rgba(255,255,255,0.3);}
 
-  /* ── LAYOUT ── */
   .main{padding:1.75rem 2rem;flex:1;}
   .ph{margin-bottom:1.5rem;}
   .ph h1{font-size:1.5rem;font-weight:800;color:var(--navy);letter-spacing:-0.5px;}
   .ph p{font-size:0.82rem;color:var(--muted);margin-top:0.2rem;}
 
-  /* ── STATS ── */
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
   .stat{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.4rem;position:relative;overflow:hidden;transition:box-shadow 0.15s,transform 0.15s;}
   .stat:hover{box-shadow:0 4px 16px rgba(26,37,64,0.08);transform:translateY(-1px);}
   .stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c);}
   .stat-val{font-size:2rem;font-weight:800;color:var(--navy);font-family:'JetBrains Mono',monospace;letter-spacing:-1.5px;line-height:1;}
   .stat-lbl{font-size:0.7rem;color:var(--muted);margin-top:0.3rem;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;}
-  .stat-icon{position:absolute;top:1.1rem;right:1.1rem;font-size:1.3rem;opacity:0.15;}
 
-  /* ── CARDS ── */
   .card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1.4rem;margin-bottom:1.1rem;box-shadow:0 1px 3px rgba(26,37,64,0.04);}
-  .card-navy{background:var(--navy);border:none;}
   .card-h{font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:1.1rem;display:flex;align-items:center;gap:0.45rem;}
-  .card-navy .card-h{color:#fff;}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;}
 
-  /* ── INPUTS ── */
   .lbl{font-size:0.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:0.3rem;display:block;}
   .inp,.ta{width:100%;padding:0.65rem 0.9rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.875rem;font-family:'Inter',sans-serif;margin-bottom:0.8rem;transition:border-color 0.13s;outline:none;}
   .inp:focus,.ta:focus{border-color:var(--navy2);background:#fff;}
   .inp::placeholder,.ta::placeholder{color:var(--muted2);}
   .ta{resize:vertical;}
 
-  /* ── BUTTONS ── */
   .btn{display:flex;align-items:center;justify-content:center;gap:0.35rem;width:100%;padding:0.68rem 1.25rem;border:none;border-radius:9px;font-size:0.84rem;font-family:'Inter',sans-serif;font-weight:700;cursor:pointer;transition:all 0.13s;margin-bottom:0.5rem;}
   .btn:disabled{opacity:0.4;cursor:not-allowed;}
   .btn-navy{background:var(--navy);color:#fff;}
@@ -113,7 +103,6 @@ const css = `
   .btn-teal{background:var(--teal);color:#fff;}
   .btn-teal:hover:not(:disabled){background:#0f766e;}
 
-  /* ── BADGES ── */
   .badge{display:inline-flex;align-items:center;padding:0.2rem 0.65rem;border-radius:20px;font-size:0.69rem;font-weight:700;letter-spacing:0.2px;}
   .bg{background:var(--green-bg);color:var(--green);}
   .br{background:var(--red-bg);color:var(--red);}
@@ -123,49 +112,39 @@ const css = `
   .bt{background:var(--teal-bg);color:var(--teal);}
   .bn{background:var(--navy);color:#fff;}
 
-  /* ── TABLE ── */
   .tbl{width:100%;border-collapse:collapse;}
   .tbl th{padding:0.6rem 1rem;text-align:left;font-size:0.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid var(--border);font-weight:600;background:var(--bg);}
-  .tbl th:first-child{border-radius:8px 0 0 0;}
-  .tbl th:last-child{border-radius:0 8px 0 0;}
   .tbl td{padding:0.8rem 1rem;font-size:0.82rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:middle;}
   .tbl tr:last-child td{border-bottom:none;}
   .tbl tr:hover td{background:var(--bg);}
   .tbl-name{color:var(--navy) !important;font-weight:700;}
   .tbl-mono{font-family:'JetBrains Mono',monospace;font-size:0.74rem !important;}
 
-  /* ── FILTERS ── */
   .filters{display:flex;gap:0.4rem;margin-bottom:1.1rem;flex-wrap:wrap;}
   .pill{padding:0.3rem 0.9rem;border-radius:20px;font-size:0.76rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.12s;}
   .pill.on{background:var(--navy);color:#fff;border-color:var(--navy);}
   .pill:hover:not(.on){border-color:var(--border2);color:var(--navy);}
 
-  /* ── STATUS ── */
   .smsg{padding:0.65rem 1rem;border-radius:8px;font-size:0.82rem;margin-top:0.65rem;}
   .sok{background:var(--green-bg);color:var(--green);border:1px solid #bbf7d0;}
   .serr{background:var(--red-bg);color:var(--red);border:1px solid #fecaca;}
 
-  /* ── FILE DROP ── */
   .drop{border:1.5px dashed var(--border2);border-radius:10px;padding:1.6rem;text-align:center;margin-bottom:0.8rem;cursor:pointer;transition:all 0.13s;background:var(--bg);}
   .drop:hover{border-color:var(--navy2);background:#eef1fb;}
   .drop input{display:none;}
 
-  /* ── SLIDER ── */
   .sl-wrap{margin-bottom:0.9rem;}
   .sl-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;}
   .sl-lbl{font-size:0.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;}
   .sl-val{font-size:1rem;font-weight:800;color:var(--navy);font-family:'JetBrains Mono',monospace;}
   input[type=range]{width:100%;accent-color:var(--navy);cursor:pointer;}
 
-  /* ── PREVIEW ── */
   .preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-size:0.8rem;line-height:1.8;color:var(--muted);white-space:pre-wrap;font-family:'JetBrains Mono',monospace;max-height:240px;overflow-y:auto;}
 
-  /* ── EMPTY ── */
   .empty{text-align:center;padding:3rem 2rem;color:var(--muted2);}
   .empty-ico{font-size:2rem;margin-bottom:0.75rem;opacity:0.4;}
   .empty-txt{font-size:0.82rem;line-height:1.6;}
 
-  /* ── ACTION BTNS ── */
   .act{padding:0.26rem 0.65rem;font-size:0.71rem;border-radius:6px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-weight:700;transition:all 0.12s;}
   .act-navy{background:var(--navy);color:#fff;}
   .act-navy:hover{background:var(--navy2);}
@@ -174,7 +153,6 @@ const css = `
   .act-green{background:var(--green-bg);color:var(--green);}
   .act-green:hover{background:#bbf7d0;}
 
-  /* ── TIMELINE ── */
   .timeline{display:flex;flex-direction:column;}
   .tl-item{display:flex;gap:1rem;padding:1.1rem 0;border-bottom:1px solid var(--border);}
   .tl-item:last-child{border-bottom:none;}
@@ -188,7 +166,6 @@ const css = `
   .tl-subj{font-size:0.76rem;color:var(--navy);margin-top:0.4rem;background:var(--bg);padding:0.28rem 0.65rem;border-radius:5px;border-left:3px solid var(--c);display:inline-block;font-weight:500;}
   .tl-body{font-size:0.76rem;color:var(--muted);margin-top:0.5rem;line-height:1.65;background:var(--bg);padding:0.65rem 0.85rem;border-radius:8px;border:1px solid var(--border);white-space:pre-wrap;max-height:130px;overflow-y:auto;font-family:'JetBrains Mono',monospace;}
 
-  /* ── MODAL ── */
   .overlay{position:fixed;inset:0;background:rgba(10,15,30,0.6);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
   .modal{background:var(--white);border:1px solid var(--border);border-radius:18px;padding:1.75rem;width:90%;max-width:600px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(26,37,64,0.2);}
   .modal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border);}
@@ -199,23 +176,19 @@ const css = `
   .modal-sec-lbl{font-size:0.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:0.4rem;margin-top:1rem;}
   .modal-body{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-size:0.8rem;line-height:1.8;color:var(--muted);white-space:pre-wrap;font-family:'JetBrains Mono',monospace;}
 
-  /* ── INFO ROWS ── */
   .info-rows{display:flex;flex-direction:column;gap:0.4rem;}
   .info-row{display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;background:var(--bg);border-radius:8px;border:1px solid var(--border);}
   .info-k{font-size:0.77rem;color:var(--muted);}
   .info-v{font-size:0.92rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--navy);}
 
-  /* ── SECTION TABS ── */
   .sec-tabs{display:flex;gap:0.35rem;margin-bottom:1.25rem;flex-wrap:wrap;}
   .sec-tab{padding:0.4rem 1rem;border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.12s;}
   .sec-tab.on{background:var(--navy);color:#fff;border-color:var(--navy);}
   .sec-tab:hover:not(.on){border-color:var(--border2);color:var(--navy);}
 
-  /* ── TBL WRAP ── */
   .tbl-wrap{max-height:320px;overflow-y:auto;border-radius:8px;border:1px solid var(--border);}
   .divider{height:1px;background:var(--border);margin:1rem 0;}
 
-  /* ── SPAM TIPS ── */
   .tip-card{background:var(--navy);border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.5rem;display:flex;gap:0.75rem;align-items:flex-start;}
   .tip-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
   .tip-text{font-size:0.8rem;color:rgba(255,255,255,0.75);line-height:1.6;}
@@ -258,24 +231,19 @@ export default function App() {
   const [authErr, setAuthErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
-
-  // Compose
   const [recipName, setRecipName] = useState("");
   const [recipCompany, setRecipCompany] = useState("");
   const [context, setContext] = useState("");
   const [genMsg, setGenMsg] = useState("");
   const [previewTo, setPreviewTo] = useState("");
   const [previewSubj, setPreviewSubj] = useState("");
-
-  // Campaign
   const [xlsxFile, setXlsxFile] = useState(null);
   const [xlsxName, setXlsxName] = useState("");
   const [parsed, setParsed] = useState([]);
   const [camSubj, setCamSubj] = useState("");
   const [camCtx, setCamCtx] = useState("");
   const [batchSize, setBatchSize] = useState(10);
-
-  // Data
+  const [useWebSearch, setUseWebSearch] = useState(true);
   const [contacts, setContacts] = useState([]);
   const [selectedC, setSelectedC] = useState(null);
   const [dashTab, setDashTab] = useState("sent");
@@ -285,17 +253,22 @@ export default function App() {
     Authorization: `Bearer ${token}`,
   };
 
-  useEffect(() => {
-    if (token && ["dashboard", "tracker"].includes(tab)) fetchContacts();
-  }, [tab, token]);
-
   const fetchContacts = async () => {
     try {
       const r = await fetch(`${API}/automation/contacts`, { headers: H });
       const d = await r.json();
       setContacts(Array.isArray(d) ? d : []);
-    } catch {}
+    } catch (e) {
+      console.error("Failed to fetch contacts:", e);
+    }
   };
+
+  useEffect(() => {
+    if (token && ["dashboard", "tracker"].includes(tab)) {
+      fetchContacts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, token]);
 
   const login = async () => {
     setAuthErr("");
@@ -392,10 +365,15 @@ export default function App() {
     if (!camSubj || parsed.length === 0)
       return setStatus("error:Load contacts and enter a subject line.");
     const batch = parsed.slice(0, batchSize);
-    if (!window.confirm(`Send ${batch.length} AI-personalized emails?`)) return;
+    if (
+      !window.confirm(
+        `Send ${batch.length} AI-personalized emails${useWebSearch ? " with live company research" : ""}?`,
+      )
+    )
+      return;
     setLoading(true);
     setStatus(
-      `success:Sending ${batch.length} emails — this may take a few minutes...`,
+      `success:${useWebSearch ? "🔍 Researching companies + sending emails" : "Sending emails"} — ${batch.length} contacts. This may take a few minutes...`,
     );
     try {
       const r = await fetch(`${API}/automation/send-all`, {
@@ -405,11 +383,12 @@ export default function App() {
           subject: camSubj,
           context: camCtx,
           contacts: batch,
+          useWebSearch,
         }),
       });
       const d = await r.json();
       setStatus(
-        `success:Done — ${d.sent} delivered, ${d.errors?.length || 0} failed.`,
+        `success:Done — ${d.sent} delivered${d.researched ? `, ${d.researched} companies researched` : ""}, ${d.errors?.length || 0} failed.`,
       );
       setParsed((prev) => prev.slice(batchSize));
       fetchContacts();
@@ -438,7 +417,6 @@ export default function App() {
     ? Math.round((replied.length / sent.length) * 100)
     : 0;
 
-  /* ── LOGIN ── */
   if (!token)
     return (
       <>
@@ -485,7 +463,6 @@ export default function App() {
     <>
       <style>{css}</style>
       <div className="app">
-        {/* NAV */}
         <nav className="topbar">
           <div className="brand">
             <div className="brand-icon">G</div>
@@ -525,14 +502,12 @@ export default function App() {
         </nav>
 
         <div className="main">
-          {/* ══════════ DASHBOARD ══════════ */}
           {tab === "dashboard" && (
             <>
               <div className="ph">
                 <h1>Dashboard</h1>
                 <p>Real-time view of every email sent, follow-up, and reply</p>
               </div>
-
               <div className="stats">
                 {[
                   { label: "Emails Sent", value: sent.length, c: "#2563eb" },
@@ -554,7 +529,6 @@ export default function App() {
                   </div>
                 ))}
               </div>
-
               <div className="sec-tabs">
                 {[
                   { id: "sent", label: `📤 Initial Emails (${sent.length})` },
@@ -578,7 +552,6 @@ export default function App() {
                 ))}
               </div>
 
-              {/* SENT */}
               {dashTab === "sent" && (
                 <div className="card">
                   <div className="card-h">📤 Initial Emails Sent</div>
@@ -650,6 +623,11 @@ export default function App() {
                                 {c.followUpSent && (
                                   <span className="badge bo">F/U Sent</span>
                                 )}
+                                {c.companyResearch && (
+                                  <span className="badge bt">
+                                    🔍 Researched
+                                  </span>
+                                )}
                                 <button
                                   className="act act-outline"
                                   onClick={() => setSelectedC(c)}
@@ -674,7 +652,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* REPLIES */}
               {dashTab === "replies" && (
                 <div className="card">
                   <div className="card-h">💬 Replies Received</div>
@@ -762,7 +739,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* FOLLOW-UPS */}
               {dashTab === "followups" && (
                 <div className="card">
                   <div className="card-h">🔄 Follow-ups Sent</div>
@@ -857,7 +833,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* PENDING */}
               {dashTab === "pending" && (
                 <div className="card">
                   <div className="card-h">⏳ Awaiting Reply</div>
@@ -888,7 +863,7 @@ export default function App() {
                         {pending.map((c, i) => {
                           const days = c.sentAt
                             ? Math.floor(
-                                (Date.now() - new Date(c.sentAt)) / 86400000,
+                                (new Date() - new Date(c.sentAt)) / 86400000,
                               )
                             : null;
                           return (
@@ -933,7 +908,6 @@ export default function App() {
             </>
           )}
 
-          {/* ══════════ COMPOSE ══════════ */}
           {tab === "compose" && (
             <>
               <div className="ph">
@@ -1031,7 +1005,6 @@ export default function App() {
             </>
           )}
 
-          {/* ══════════ CAMPAIGNS ══════════ */}
           {tab === "campaigns" && (
             <>
               <div className="ph">
@@ -1105,6 +1078,91 @@ export default function App() {
                         onChange={(e) => setCamCtx(e.target.value)}
                         rows={3}
                       />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "0.85rem 1rem",
+                          background: useWebSearch
+                            ? "rgba(26,37,64,0.05)"
+                            : "var(--bg)",
+                          border: `1.5px solid ${useWebSearch ? "var(--navy)" : "var(--border)"}`,
+                          borderRadius: "10px",
+                          marginBottom: "0.8rem",
+                          transition: "all 0.15s",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setUseWebSearch((v) => !v)}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "0.83rem",
+                              fontWeight: 700,
+                              color: "var(--navy)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.4rem",
+                            }}
+                          >
+                            🔍 Live Company Research
+                            {useWebSearch && (
+                              <span
+                                style={{
+                                  fontSize: "0.65rem",
+                                  background: "var(--navy)",
+                                  color: "#fff",
+                                  padding: "0.1rem 0.5rem",
+                                  borderRadius: "20px",
+                                  fontWeight: 700,
+                                  letterSpacing: "0.5px",
+                                }}
+                              >
+                                ON
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.74rem",
+                              color: "var(--muted)",
+                              marginTop: "0.2rem",
+                            }}
+                          >
+                            {useWebSearch
+                              ? "Claude searches the web before each email — adds ~1.5s per contact"
+                              : "Standard AI generation without web search"}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            width: 42,
+                            height: 24,
+                            background: useWebSearch
+                              ? "var(--navy)"
+                              : "var(--border2)",
+                            borderRadius: 12,
+                            position: "relative",
+                            flexShrink: 0,
+                            transition: "background 0.2s",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 18,
+                              height: 18,
+                              background: "#fff",
+                              borderRadius: "50%",
+                              position: "absolute",
+                              top: 3,
+                              left: useWebSearch ? 21 : 3,
+                              transition: "left 0.2s",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                            }}
+                          />
+                        </div>
+                      </div>
                       <div className="sl-wrap">
                         <div className="sl-top">
                           <span className="sl-lbl">Emails per batch</span>
@@ -1119,6 +1177,23 @@ export default function App() {
                           onChange={(e) => setBatchSize(Number(e.target.value))}
                         />
                       </div>
+                      {useWebSearch && batchSize > 20 && (
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "var(--amber)",
+                            background: "var(--amber-bg)",
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "7px",
+                            marginBottom: "0.75rem",
+                            border: "1px solid #fde68a",
+                          }}
+                        >
+                          ⚠️ Web search adds ~1.5s per email. {batchSize} emails
+                          ≈ {Math.ceil((batchSize * 1.5) / 60)} min. Consider
+                          smaller batches.
+                        </div>
+                      )}
                       <button
                         className="btn btn-navy"
                         onClick={launchCampaign}
@@ -1126,7 +1201,7 @@ export default function App() {
                       >
                         {loading
                           ? "Campaign running..."
-                          : `🚀 Launch (${Math.min(batchSize, parsed.length)} emails)`}
+                          : `🚀 Launch (${Math.min(batchSize, parsed.length)} emails${useWebSearch ? " + research" : ""})`}
                       </button>
                     </div>
                   )}
@@ -1222,7 +1297,6 @@ export default function App() {
             </>
           )}
 
-          {/* ══════════ ALL CONTACTS ══════════ */}
           {tab === "tracker" && (
             <>
               <div className="ph">
@@ -1310,7 +1384,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* ══════════ MODAL ══════════ */}
       {selectedC && (
         <div className="overlay" onClick={() => setSelectedC(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1361,6 +1434,21 @@ export default function App() {
             <div className="modal-body">
               {selectedC.emailBody || "No content saved."}
             </div>
+            {selectedC.companyResearch && (
+              <>
+                <div className="modal-sec-lbl">🔍 Company Research Used</div>
+                <div
+                  className="modal-body"
+                  style={{
+                    borderLeft: "3px solid var(--navy)",
+                    color: "var(--navy)",
+                    background: "rgba(26,37,64,0.04)",
+                  }}
+                >
+                  {selectedC.companyResearch}
+                </div>
+              </>
+            )}
             {selectedC.followUpSent && selectedC.followUpBody && (
               <>
                 <div className="modal-sec-lbl">
