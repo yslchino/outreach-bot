@@ -353,7 +353,7 @@ export default function App() {
       const d = await r.json();
       setParsed(d.contacts || []);
       setStatus(
-        `success:${d.total} new contacts loaded.${d.skipped ? ` ${d.skipped} already contacted — skipped.` : ""}`,
+        `success:${d.contacts?.length || d.total || 0} new contacts loaded.${d.skipped ? ` ${d.skipped} already contacted — skipped.` : ""}`,
       );
     } catch {
       setStatus("error:Failed to read file.");
