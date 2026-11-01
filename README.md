@@ -2,7 +2,6 @@
 
 > A full-stack automated email outreach platform built for **GET Logistics LLC**, a freight brokerage business. The bot uses Claude AI to generate personalized cold emails, sends them via a verified business domain, tracks replies automatically, and manages follow-ups — all from a clean, professional web dashboard.
 
-**Live Demo:** [outreach-bot-one.vercel.app](https://outreach-bot-one.vercel.app)
 
 ---
 
