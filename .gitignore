@@ -1,7 +1,12 @@
 .env
+.env.*
+!.env.example
 node_modules/
 client/node_modules/
 uploads/
 server/data/
 *.log
 .DS_Store
+client/dist/
+coverage/
+.local/
