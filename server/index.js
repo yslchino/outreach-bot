@@ -1,50 +1,39 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
 require("dotenv").config();
-
-const emailRoutes = require("./routes/email");
-const aiRoutes = require("./routes/ai");
-const automationRoutes = require("./routes/automation");
-const authRoutes = require("./routes/auth");
-const gmailRoutes = require("./routes/gmail");
-const { protect } = require("./middleware/authMiddleware");
-const { startFollowUpJob } = require("./jobs/followUpJob");
-const { startReplyDetectionJob } = require("./jobs/replyDetectionJob");
-
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-// Middleware FIRST — before any routes
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
-app.use(express.json());
-
-// Health check — Railway uses this to confirm the server is alive
-app.get("/health", (req, res) => res.json({ status: "ok", ts: Date.now() }));
-app.get("/", (req, res) => res.send("Outreach Bot server is running!"));
-
-// API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/email", protect, emailRoutes);
-app.use("/api/ai", protect, aiRoutes);
-app.use("/api/automation", protect, automationRoutes);
-app.use("/", gmailRoutes); // Gmail OAuth — must be last
-
-// Connect to DB and start server
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("✅ Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(`🚀 Server listening on port ${PORT}`);
-      startFollowUpJob();
-      startReplyDetectionJob();
-    });
-  })
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+const mongoose = require("mongoose");
+const {
+  config,
+  validateConfig
+} = require("./config");
+const {
+  createApp
+} = require("./app");
+async function start() {
+  validateConfig();
+  await mongoose.connect(config.databaseUri, {
+    serverSelectionTimeoutMS: 5000
+  });
+  await Promise.all(["User", "Contact", "Campaign", "Message", "Suppression", "Usage", "OutreachReservation", "ImportBatch"].map(name => require("./models/" + name).init()));
+  const {
+    startWorker,
+    recoverDraftLocks
+  } = require("./services/worker");
+  await recoverDraftLocks();
+  const maintenance = setInterval(() => recoverDraftLocks().catch(err => console.error("Draft recovery failed: " + err.name)), 60000);
+  maintenance.unref();
+  const tasks = config.jobsEnabled ? [startWorker(), require("./jobs/replyDetectionJob").startReplyDetectionJob()] : [];
+  const server = createApp().listen(config.port, config.host, () => {
+    console.log("GET Logistics v2 listening on port " + config.port + ". Sending: " + config.sendingEnabled);
+  });
+  for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => {
+    tasks.forEach(task => task.stop());
+    clearInterval(maintenance);
+    server.close(() => mongoose.disconnect().then(() => process.exit(0)));
+  });
+}
+if (require.main === module) start().catch(err => {
+  console.error(err.message);
+  process.exitCode = 1;
+});
+module.exports = {
+  start
+};

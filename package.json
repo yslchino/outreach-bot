@@ -1,17 +1,23 @@
 {
   "name": "outreach-bot",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "GET Logistics shared outreach workspace",
   "main": "index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test server/tests/*.test.js",
+    "test:integration": "node --test server/integration/*.test.js",
+    "local:up": "node server/scripts/localUp.js",
+    "bootstrap-admin": "node server/scripts/bootstrapAdmin.js",
+    "build": "npm --prefix client run build",
+    "check": "npm test && npm --prefix client run lint && npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": { "node": "24.x" },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "bcryptjs": "^3.0.3",
