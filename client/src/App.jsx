@@ -65,15 +65,26 @@ function Login({
 export default function App() {
   const [user, setUser] = useState(null),
     [booting, setBooting] = useState(() => Boolean(sessionStorage.getItem("outreach-session")));
-  const [page, setPage] = useState("overview"),
+  const [page, setPage] = useState(() => new URLSearchParams(window.location.search).has("outlook") ? "settings" : "overview"),
     [version, setVersion] = useState(0),
-    [notice, setNotice] = useState(null),
+    [notice, setNotice] = useState(() => {
+      const result = new URLSearchParams(window.location.search).get("outlook");
+      return result ? { message: result === "connected" ? "Outlook connected. You can now scan campaign replies." : "Microsoft sign-in was cancelled.",
+        type: result === "connected" ? "success" : "error" } : null;
+    }),
     [menuOpen, setMenuOpen] = useState(false);
   const notify = useCallback((message, type = "success") => setNotice({
     message,
     type
   }), []);
   const changed = useCallback(() => setVersion(value => value + 1), []);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("outlook");
+    if (!result) return;
+    params.delete("outlook");
+    window.history.replaceState(null, "", window.location.pathname + (params.size ? "?" + params : "") + window.location.hash);
+  }, []);
   useEffect(() => {
     localStorage.removeItem("token");
     let current = true;

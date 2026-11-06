@@ -259,6 +259,87 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
     assert.equal(unverified.verificationMethod, null);
     assert.equal(unverified.verifiedBy, null);
   });
+
+  await check("Outlook connection persists encrypted tokens and enforces one-time authorization with real indexes", async () => {
+    const Mailbox = require("../models/MailboxConnection");
+    const Attempt = require("../models/OAuthAttempt");
+    await Promise.all([Mailbox.init(), Attempt.init()]);
+    const originalEnv = Object.fromEntries(["OUTLOOK_CLIENT_ID", "OUTLOOK_CLIENT_SECRET", "OUTLOOK_TOKEN_KEY", "OUTLOOK_EXPECTED_EMAIL", "OUTLOOK_REDIRECT_URI"].map(key => [key, process.env[key]]));
+    Object.assign(process.env, { OUTLOOK_CLIENT_ID: "local-test-client", OUTLOOK_CLIENT_SECRET: "local-test-secret",
+      OUTLOOK_TOKEN_KEY: Buffer.alloc(32, 9).toString("base64"), OUTLOOK_EXPECTED_EMAIL: "test-inbox@example.invalid",
+      OUTLOOK_REDIRECT_URI: "http://127.0.0.1:5000/api/outlook/callback" });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      if (String(url).startsWith("https://login.microsoftonline.com/")) return Response.json({ access_token: "mock-access", refresh_token: "mock-refresh-private" });
+      if (String(url).startsWith("https://graph.microsoft.com/")) return Response.json({ id: "mock-account", mail: "test-inbox@example.invalid" });
+      return originalFetch(url, options);
+    };
+    try {
+      const start = await fetch(base + "/api/outlook/connect", { method: "POST", headers: { Authorization: "Bearer " + token } });
+      assert.equal(start.status, 200);
+      const authUrl = new URL((await start.json()).url), state = authUrl.searchParams.get("state");
+      const cookie = start.headers.get("set-cookie").split(";")[0];
+      const callbackUrl = base + "/api/outlook/callback?state=" + state + "&code=local-test-code";
+      const callback = await fetch(callbackUrl, { headers: { Cookie: cookie }, redirect: "manual" });
+      assert.equal(callback.status, 302);
+      assert.equal((await fetch(callbackUrl, { headers: { Cookie: cookie }, redirect: "manual" })).status, 400);
+      assert.equal(await Attempt.countDocuments(), 0);
+      const stored = await Mailbox.findById("outlook").select("+refreshToken");
+      assert.equal(stored.refreshToken.includes("mock-refresh-private"), false);
+      assert.equal(require("../services/outlook").unseal(stored.refreshToken), "mock-refresh-private");
+      const status = await request("/outlook/status");
+      assert.equal(status.connected, true);
+      assert.equal("refreshToken" in status, false);
+      await request("/outlook/disconnect", { method: "POST", body: {} });
+      assert.equal(await Mailbox.countDocuments(), 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+      for (const [key, value] of Object.entries(originalEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    }
+  });
+  await check("signed Resend IDs, bounces, replies, and later opt-outs persist and cancel pending messages", async () => {
+    const owner = await User.findOne({ seat: 1 });
+    const campaign = await Campaign.create({ name: "LOCAL TEST reply lifecycle", subject: "Test", audience: "shipper", createdBy: owner._id });
+    const lead = await Contact.create({ name: "LOCAL TEST Reply", email: "reply-lifecycle@example.invalid", status: "sent", outreachCampaign: campaign._id });
+    const initial = await Message.create({ campaign: campaign._id, contact: lead._id, to: lead.email, subject: "Test", body: "Test",
+      status: "accepted", provider: "resend", providerId: "local-provider-reply", acceptedAt: new Date() });
+    const followup = await Message.create({ campaign: campaign._id, contact: lead._id, to: lead.email, subject: "Follow-up", body: "Test",
+      kind: "followup", parent: initial._id, status: "queued" });
+    const secretBytes = Buffer.from("local-only-integration-webhook-secret");
+    process.env.RESEND_WEBHOOK_SECRET = "whsec_" + secretBytes.toString("base64");
+    process.env.RESEND_API_KEY = "re_test_mock_only";
+    async function event(type, providerId) {
+      const payload = JSON.stringify({ type, created_at: new Date().toISOString(), data: { email_id: providerId, message_id: "<actual-"+providerId+"@ses.invalid>" } });
+      const id = crypto.randomUUID(), timestamp = String(Math.floor(Date.now()/1000));
+      const signature = crypto.createHmac("sha256", secretBytes).update(id+"."+timestamp+"."+payload).digest("base64");
+      const response = await fetch(base + "/api/webhooks/resend", { method: "POST", body: payload, headers: {
+        "Content-Type": "application/json", "svix-id": id, "svix-timestamp": timestamp, "svix-signature": "v1,"+signature,
+      } });
+      assert.equal(response.status, 204);
+    }
+    await event("email.sent", initial.providerId);
+    assert.equal((await Message.findById(initial._id)).rfcMessageId, "<actual-local-provider-reply@ses.invalid>");
+    assert.equal((await Message.findById(initial._id)).rfcMessageIdVerified, true);
+    const { recordReply } = require("../services/replies");
+    await recordReply(lead, { subject: "Re: Test", body: "Let's discuss a shipment.", receivedAt: new Date(), messageId: "<normal-reply@outlook.invalid>" });
+    assert.equal((await Contact.findById(lead._id)).replied, true);
+    assert.equal((await Message.findById(followup._id)).status, "skipped");
+    assert.equal(await Suppression.countDocuments({ email: lead.email }), 0);
+    await recordReply(lead, { subject: "Re: Test", body: "Please remove me from your list.", receivedAt: new Date(), messageId: "<later-optout@outlook.invalid>" });
+    assert.equal((await Contact.findById(lead._id)).status, "suppressed");
+    assert.equal((await Suppression.findOne({ email: lead.email })).reason, "opt_out");
+    await recordReply(lead, { subject: "unsubscribe", body: "", receivedAt: new Date(), messageId: "<later-optout@outlook.invalid>" });
+    assert.equal(await Suppression.countDocuments({ email: lead.email }), 1);
+    const bounced = await Contact.create({ email: "bounce-lifecycle@example.invalid", status: "sent" });
+    const bounceMessage = await Message.create({ campaign: campaign._id, contact: bounced._id, to: bounced.email, subject: "Test", body: "Test",
+      status: "accepted", provider: "resend", providerId: "local-provider-bounce" });
+    await event("email.bounced", bounceMessage.providerId);
+    await event("email.delivered", bounceMessage.providerId);
+    assert.equal((await Message.findById(bounceMessage._id)).deliveryStatus, "bounced");
+    assert.equal((await Contact.findById(bounced._id)).status, "suppressed");
+    assert.equal((await Suppression.findOne({ email: bounced.email })).reason, "bounce");
+    delete process.env.RESEND_WEBHOOK_SECRET; delete process.env.RESEND_API_KEY;
+  });
   const output = path.resolve(__dirname, "../../.local/integration-result.json");
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, JSON.stringify({ completedAt: new Date().toISOString(), database,

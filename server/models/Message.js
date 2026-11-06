@@ -51,6 +51,7 @@ const schema = new mongoose.Schema({
   provider: String,
   providerId: String,
   rfcMessageId: String,
+  rfcMessageIdVerified: { type: Boolean, default: false },
   sentFrom: String,
   renderedText: String,
   renderedHtml: String,
