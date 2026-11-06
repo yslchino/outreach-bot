@@ -68,6 +68,9 @@ const contactSchema = new mongoose.Schema({
     default: false
   },
   repliedAt: Date,
+  replySubject: String,
+  replyPreview: String,
+  replyMessageId: String,
   replyCheckedAt: Date
 }, {
   timestamps: true

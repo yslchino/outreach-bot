@@ -12,7 +12,7 @@ async function start() {
   await mongoose.connect(config.databaseUri, {
     serverSelectionTimeoutMS: 5000
   });
-  await Promise.all(["User", "Contact", "Campaign", "Message", "Suppression", "Usage", "OutreachReservation", "ImportBatch"].map(name => require("./models/" + name).init()));
+  await Promise.all(["User", "Contact", "Campaign", "Message", "Suppression", "Usage", "OutreachReservation", "ImportBatch", "MailboxConnection", "OAuthAttempt"].map(name => require("./models/" + name).init()));
   const {
     startWorker,
     recoverDraftLocks
@@ -20,7 +20,8 @@ async function start() {
   await recoverDraftLocks();
   const maintenance = setInterval(() => recoverDraftLocks().catch(err => console.error("Draft recovery failed: " + err.name)), 60000);
   maintenance.unref();
-  const tasks = config.jobsEnabled ? [startWorker(), require("./jobs/replyDetectionJob").startReplyDetectionJob()] : [];
+  const tasks = config.jobsEnabled ? [startWorker(), require("./jobs/replyDetectionJob").startReplyDetectionJob(),
+    require("./jobs/outlookReplies").startOutlookReplyJob()] : [];
   const server = createApp().listen(config.port, config.host, () => {
     console.log("GET Logistics v2 listening on port " + config.port + ". Sending: " + config.sendingEnabled);
   });

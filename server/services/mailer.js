@@ -44,6 +44,7 @@ async function sendMessage(message, contact, parent, dependencies = {}) {
       replyTo: config.replyTo,
       to: message.to,
       subject: message.subject,
+      tags: [{ name: "workspace", value: "get-outreach-v2" }],
       text,
       html: renderEmail(message.body),
       headers: {
@@ -61,7 +62,9 @@ async function sendMessage(message, contact, parent, dependencies = {}) {
     if (!data?.id) throw new Error("Email provider did not return a message ID.");
     return {
       providerId: data.id,
-      rfcMessageId,
+      // Resend replaces our supplied header. Its signed webhook supplies the real ID.
+      rfcMessageId: null,
+      rfcMessageIdVerified: false,
       sentFrom: config.sender
     };
   }
@@ -96,6 +99,7 @@ async function sendMessage(message, contact, parent, dependencies = {}) {
   return {
     providerId: result.messageId,
     rfcMessageId,
+    rfcMessageIdVerified: true,
     sentFrom: config.sender
   };
 }

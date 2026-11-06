@@ -54,6 +54,7 @@ async function settings(req, res) {
     aiLimit: config.monthlyAiLimit,
     budgetTarget: 50,
     gmailConfigured: Boolean(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN),
+    resendWebhookConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_WEBHOOK_SECRET),
     providerConfigured: config.provider === "resend" ? Boolean(process.env.RESEND_API_KEY) : config.provider === "smtp" ? Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) : false,
     postalAddressConfigured: Boolean(config.postalAddress)
   });

@@ -162,6 +162,10 @@ A body-only unsubscribe reply is treated as a reply and stops that lead's queued
 
 After initial sending completes, use **Prepare due follow-ups** in the campaign. Only unreplied, unsuppressed leads with accepted originals older than three days qualify. Follow-ups are stored and individually editable before batch approval.
 
+## Outlook replies and Resend delivery events
+
+See [the connection and verification guide](docs/outlook-and-resend.md) for Microsoft sign-in, encrypted mailbox authorization, manual reply scans, opt-out processing, and Resend's signed webhook setup. The Outlook connection and webhook must be configured and tested live before relying on automated reply tracking. This setup does not enable campaign sending.
+
 ## Tests and checks
 
 ~~~powershell

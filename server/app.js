@@ -15,6 +15,7 @@ function createApp() {
   app.disable("x-powered-by");
   app.use(cors({
     origin: config.clientOrigin,
+    credentials: true,
     methods: ["GET", "POST", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"]
   }));
@@ -42,6 +43,7 @@ function createApp() {
   app.use(["/auth/gmail", "/auth/gmail/callback"], (req, res) => res.status(410).json({
     error: "Browser-based token setup is disabled. Configure Gmail credentials securely on the server."
   }));
+  app.use("/api/outlook", require("./routes/outlook"));
   app.use("/api", require("./routes/workspace"));
   app.use("/api", (req, res) => res.status(404).json({
     error: "API endpoint not found."
