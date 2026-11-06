@@ -24,6 +24,10 @@ router.post("/resend", express.raw({
   } catch {
     return res.sendStatus(400);
   }
+  if (event.type === "email.received") {
+    await require("../services/resendReceiving").processReceived(event);
+    return res.sendStatus(204);
+  }
   const statuses = {
     "email.delivered": "delivered",
     "email.bounced": "bounced",

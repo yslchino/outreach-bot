@@ -31,7 +31,7 @@ async function recordReply(contact, incoming) {
   // Suppress first so queued sends stop even if saving reply details later fails.
   if (optOut) await suppress(contact.email);
   const emailQuery = new RegExp("^" + escapeRegex(contact.email) + "$", "i");
-  await Contact.updateMany({ email: emailQuery }, { $set: { replied: true,
+  await Contact.updateMany({ email: emailQuery, $or: [{ repliedAt: null }, { repliedAt: { $lte: new Date(incoming.receivedAt) } }] }, { $set: { replied: true,
     repliedAt: new Date(incoming.receivedAt), replySubject: String(incoming.subject || "").slice(0, 200),
     replyPreview: authoredText(incoming.body).slice(0, 4000), replyMessageId: incoming.messageId,
   } });

@@ -340,6 +340,80 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
     assert.equal((await Suppression.findOne({ email: bounced.email })).reason, "bounce");
     delete process.env.RESEND_WEBHOOK_SECRET; delete process.env.RESEND_API_KEY;
   });
+
+  await check("Resend incoming webhooks match replies, backfill IDs, retry safely, and suppress opt-outs exactly once", async () => {
+    const Inbound = require("../models/InboundEmail"); await Inbound.init();
+    const originalConfig = { ...config };
+    const previousKey = process.env.RESEND_API_KEY, previousSecret = process.env.RESEND_WEBHOOK_SECRET;
+    const secret = Buffer.from("local-receiving-integration-secret");
+    process.env.RESEND_WEBHOOK_SECRET = "whsec_" + secret.toString("base64");
+    process.env.RESEND_API_KEY = "re_test_mock_only";
+    Object.assign(config, { replyProvider: "resend", resendReceivingEnabled: true, resendReceivingAddress: "replies@example.invalid" });
+    const owner = await User.findOne({ seat: 1 });
+    const campaign = await Campaign.create({ name: "LOCAL TEST incoming Resend", subject: "Test", audience: "shipper", createdBy: owner._id });
+    const lead = await Contact.create({ name: "LOCAL TEST Incoming", email: "incoming@example.invalid", status: "sent", outreachCampaign: campaign._id });
+    const initial = await Message.create({ campaign: campaign._id, contact: lead._id, to: lead.email, subject: "Test", body: "Test",
+      status: "accepted", provider: "resend", providerId: "mock-initial-provider", acceptedAt: new Date(Date.now()-60000) });
+    const followup = await Message.create({ campaign: campaign._id, contact: lead._id, to: lead.email, subject: "Follow-up", body: "Test",
+      status: "queued", kind: "followup", parent: initial._id });
+    const messages = new Map(), calls = [];
+    const incoming = (id, body, timestamp = new Date().toISOString()) => ({ id, from: lead.email, to: ["replies@example.invalid"], created_at: timestamp,
+      message_id: "<"+id+"@sender.invalid>", subject: "Re: Test", text: body, headers: { From: lead.email, "In-Reply-To": "<real-initial@ses.invalid>" } });
+    messages.set("reply-one", incoming("reply-one", "Can you call tomorrow?"));
+    messages.set("reply-optout", incoming("reply-optout", "Please remove me from your list."));
+    messages.set("older-reply", incoming("older-reply", "Older conversation", new Date(Date.now()-30000).toISOString()));
+    messages.set("unmatched-one", { ...incoming("unmatched-one", "Hello"), headers: { From: lead.email, "In-Reply-To": "<unrelated@sender.invalid>" } });
+    messages.set("html-one", { ...incoming("html-one", ""), text: null, html: "<p>Message</p>" });
+    const originalFetch = globalThis.fetch;
+    let temporaryFailure = false;
+    globalThis.fetch = async (url, options) => {
+      if (!String(url).startsWith("https://api.resend.com/")) return originalFetch(url, options);
+      const pathname = new URL(url).pathname; calls.push(pathname);
+      if (temporaryFailure) { temporaryFailure = false; return Response.json({ error: "temporary" }, { status: 503 }); }
+      if (pathname === "/emails/mock-initial-provider") return Response.json({ id: initial.providerId, message_id: "<real-initial@ses.invalid>" });
+      const id = pathname.split("/").pop();
+      return messages.has(id) ? Response.json(messages.get(id)) : Response.json({}, { status: 404 });
+    };
+    async function post(id, expected = 204, signed = true) {
+      const data = messages.get(id);
+      const payload = JSON.stringify({ type: "email.received", created_at: data.created_at, data: { email_id: id, message_id: data.message_id } });
+      const eventId = crypto.randomUUID(), timestamp = String(Math.floor(Date.now()/1000));
+      const signature = crypto.createHmac("sha256", secret).update(eventId+"."+timestamp+"."+payload).digest("base64");
+      const response = await fetch(base+"/api/webhooks/resend", { method: "POST", body: payload, headers: {
+        "Content-Type": "application/json", "svix-id": eventId, "svix-timestamp": timestamp, "svix-signature": "v1,"+(signed?signature:"wrong"),
+      } });
+      assert.equal(response.status, expected, await response.text());
+    }
+    try {
+      await post("reply-one", 400, false); assert.equal(await Inbound.countDocuments(), 0);
+      await post("reply-one"); const readCount = calls.length;
+      await post("reply-one"); assert.equal(calls.length, readCount);
+      assert.equal((await Message.findById(initial._id)).rfcMessageIdVerified, true);
+      assert.equal((await Contact.findById(lead._id)).replied, true);
+      assert.equal((await Message.findById(followup._id)).status, "skipped");
+      temporaryFailure = true; await post("reply-optout", 503);
+      assert.equal((await Inbound.findById("reply-optout")).status, "failed");
+      await post("reply-optout"); await post("reply-optout");
+      assert.equal((await Suppression.findOne({ email: lead.email })).reason, "opt_out");
+      assert.equal(await Suppression.countDocuments({ email: lead.email }), 1);
+      assert.equal((await Contact.findById(lead._id)).status, "suppressed");
+      const preview = (await Contact.findById(lead._id)).replyPreview;
+      await post("older-reply");
+      assert.equal((await Contact.findById(lead._id)).replyPreview, preview);
+      await post("unmatched-one");
+      assert.equal((await Inbound.findById("unmatched-one")).status, "unmatched");
+      await post("html-one");
+      assert.equal((await Inbound.findById("html-one")).status, "needs_review");
+      const inbox = await request("/inbound");
+      assert.equal(inbox.total, 5);
+      assert.equal(inbox.items.some(row => "leaseToken" in row), false);
+      assert.equal(inbox.items.some(row => (row.preview || "").includes("<p>")), false);
+    } finally {
+      globalThis.fetch = originalFetch; Object.assign(config, originalConfig);
+      if (previousKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = previousKey;
+      if (previousSecret === undefined) delete process.env.RESEND_WEBHOOK_SECRET; else process.env.RESEND_WEBHOOK_SECRET = previousSecret;
+    }
+  });
   const output = path.resolve(__dirname, "../../.local/integration-result.json");
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, JSON.stringify({ completedAt: new Date().toISOString(), database,

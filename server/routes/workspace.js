@@ -24,6 +24,7 @@ router.use(protect);
 router.get("/overview", workspace.overview);
 router.get("/settings", workspace.settings);
 router.get("/messages", workspace.listMessages);
+router.get("/inbound", workspace.listInbound);
 router.post("/messages/:id/resolve", admin, workspace.resolveMessage);
 router.get("/contacts", workspace.listContacts);
 router.get("/contacts/facets", workspace.contactFacets);
