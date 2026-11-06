@@ -5,9 +5,10 @@ Resend is the selected receiving provider for GET Logistics. Replies will use `r
 ## Current setup
 
 - Sending domain: `outreach.getlogistics.llc`.
-- Receiving capability has been enabled in Resend. Receiving DNS verification is pending.
+- Receiving capability and the Squarespace MX record are verified in Resend.
 - Local configuration selects `REPLY_PROVIDER=resend` and sets `RESEND_RECEIVING_ADDRESS=replies@outreach.getlogistics.llc`.
-- `RESEND_RECEIVING_ENABLED=false`, `SENDING_ENABLED=false`, and `JOBS_ENABLED=false` remain in place. The existing `EMAIL_REPLY_TO` remains Outlook until receiving is verified and connected.
+- The approved temporary Cloudflare tunnel and Resend webhook are connected. `RESEND_RECEIVING_ENABLED=true` and `EMAIL_REPLY_TO=replies@outreach.getlogistics.llc` are configured locally. `SENDING_ENABLED=false` and `JOBS_ENABLED=false` remain in place.
+- Public-path checks confirmed a valid signed synthetic event reaches the app, unsigned/tampered requests are rejected, and other API/dashboard routes are blocked. A real incoming-email test is still required.
 - The pilot remains ten unsent drafts.
 
 ## Squarespace DNS
@@ -43,6 +44,8 @@ When receiving mode is selected, startup refuses to enable campaign sending with
 
 A temporary Cloudflare Quick Tunnel can point to this restricted relay after separate approval to open the public connection. It runs only while the PC and processes remain active, its hostname changes on restart, and it is for testing rather than a permanent production deployment. No tunnel is started by the application or local launcher.
 
+The approved connection's current URL and Resend webhook ID are saved in ignored `.local/webhook-connection.json`; public-route test results are in `.local/webhook-public-check.json`. Process IDs are in `.local/webhook-tunnel.pid` and `.local/webhook-relay.pid`. If the tunnel stops, incoming email can still reach Resend, but callbacks to this PC stop. A new Quick Tunnel requires updating the registered webhook URL. Do not enable campaign sending based on this temporary connection's availability.
+
 - Verify the raw webhook signature before database or Resend retrieval work.
 - Persist an incoming-email ledger keyed by Resend email ID. Atomic leases prevent simultaneous duplicate processing. Terminal events are acknowledged without applying them again. Temporary errors return a retryable response; expired processing leases can be recovered on a later event retry.
 - Retrieve email content only from fixed Resend API endpoints, with a 15-second timeout per request. Attachments and raw download URLs are not fetched. No automatic replies or forwards are sent.
@@ -56,6 +59,6 @@ A temporary Cloudflare Quick Tunnel can point to this restricted relay after sep
 
 Run `npm test`, `npm run test:integration`, `npm --prefix client run lint`, and `npm run build`. Database integration tests use a unique localhost test database and mocked provider responses. They cover signed ingress, duplicate replay, delayed Message-ID metadata, temporary provider errors, opt-outs, out-of-order replies, and HTML review handling. No email is sent by these tests.
 
-Receiving counts toward the account's email quota. Hosting a continuously available webhook is separate from Resend's plan. Live receiving remains unverified until the MX record and public endpoint are connected.
+Receiving counts toward the account's email quota. Hosting a continuously available webhook is separate from Resend's plan. DNS and the temporary public endpoint are now connected; a real incoming-email test remains to verify provider-to-dashboard delivery.
 
 References: [Receiving email](https://resend.com/docs/dashboard/receiving/introduction), [retrieving content](https://resend.com/docs/dashboard/receiving/get-email-content), [reply threading](https://resend.com/docs/dashboard/receiving/reply-to-emails).
