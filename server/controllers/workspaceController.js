@@ -3,6 +3,7 @@ const Campaign = require("../models/Campaign");
 const Message = require("../models/Message");
 const Suppression = require("../models/Suppression");
 const Usage = require("../models/Usage");
+const Inbound = require("../models/InboundEmail");
 const {
   config
 } = require("../config");
@@ -48,6 +49,9 @@ async function settings(req, res) {
     provider: config.provider,
     sender: config.sender,
     replyTo: config.replyTo,
+    replyProvider: config.replyProvider,
+    resendReceivingAddress: config.resendReceivingAddress,
+    resendReceivingEnabled: config.resendReceivingEnabled,
     timezone: config.timezone,
     dailyLimit: config.dailyLimit,
     aiEnabled: config.aiEnabled,
@@ -220,6 +224,14 @@ async function listMessages(req, res) {
     pages: Math.max(1, Math.ceil(total / 50))
   });
 }
+async function listInbound(req, res) {
+  const page = Math.max(1, Math.min(10000, Math.trunc(Number(req.query.page)) || 1));
+  const [items, total] = await Promise.all([
+    Inbound.find({}).select("_id status sender subject preview receivedAt reason contact optOut updatedAt")
+      .sort({ createdAt: -1 }).skip((page - 1) * 20).limit(20).lean(), Inbound.countDocuments(),
+  ]);
+  res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / 20)) });
+}
 async function resolveMessage(req, res) {
   assert(["accepted", "not_sent"].includes(req.body.outcome), 400, "Choose a verified provider outcome.");
   const note = v.text(req.body.note, "Reconciliation evidence", 1000);
@@ -269,5 +281,6 @@ module.exports = {
   contactHistory,
   addSuppression,
   listMessages,
+  listInbound,
   resolveMessage
 };

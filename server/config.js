@@ -9,6 +9,9 @@ const config = {
   provider: process.env.EMAIL_PROVIDER || "disabled",
   sender: process.env.EMAIL_FROM || "",
   replyTo: process.env.EMAIL_REPLY_TO || "",
+  replyProvider: process.env.REPLY_PROVIDER || "manual",
+  resendReceivingAddress: process.env.RESEND_RECEIVING_ADDRESS || "",
+  resendReceivingEnabled: process.env.RESEND_RECEIVING_ENABLED === "true",
   postalAddress: process.env.POSTAL_ADDRESS || "",
   dailyLimit: Number(process.env.DAILY_SEND_LIMIT || 25),
   timezone: process.env.BUSINESS_TIMEZONE || "America/Los_Angeles",
@@ -33,7 +36,14 @@ function validateConfig() {
   new Intl.DateTimeFormat("en", {
     timeZone: config.timezone
   });
+  if (!["manual", "gmail", "outlook", "resend"].includes(config.replyProvider)) throw new Error("Invalid REPLY_PROVIDER.");
+  if (config.replyProvider === "resend" && config.resendReceivingAddress) require("./lib/validation").email(config.resendReceivingAddress);
+  if (config.resendReceivingEnabled && (config.replyProvider !== "resend" || !config.resendReceivingAddress)) throw new Error("Configure the Resend reply address before activating receiving.");
+  if (config.resendReceivingEnabled && (!process.env.RESEND_API_KEY || !process.env.RESEND_WEBHOOK_SECRET)) throw new Error("Configure Resend API and webhook credentials before activating receiving.");
   if (config.sendingEnabled) {
+    if (config.replyProvider === "resend" && (!config.resendReceivingEnabled || config.replyTo !== config.resendReceivingAddress || !process.env.RESEND_WEBHOOK_SECRET)) {
+      throw new Error("Activate Resend receiving and its signed webhook before enabling campaign sending.");
+    }
     if (!["resend", "smtp"].includes(config.provider)) throw new Error("Select EMAIL_PROVIDER=resend or smtp before enabling sending.");
     if (!config.sender || !config.replyTo || !config.postalAddress || /[\r\n]/.test(config.sender + config.replyTo)) {
       throw new Error("Configure a valid sender, reply-to, and postal address before enabling sending.");

@@ -110,6 +110,7 @@ module.exports = {
   snapshotMessage: (message) => ({
     provider: config.provider,
     sentFrom: config.sender,
+    sentReplyTo: config.replyTo,
     rfcMessageId: "<get-" + message._id + "@" + config.replyTo.split("@")[1] + ">",
     renderedHtml: renderEmail(message.body),
     renderedText: message.body + "\n\nGET Logistics LLC\n" + config.postalAddress + "\nTo stop receiving messages, reply with unsubscribe.",

@@ -53,6 +53,7 @@ const schema = new mongoose.Schema({
   rfcMessageId: String,
   rfcMessageIdVerified: { type: Boolean, default: false },
   sentFrom: String,
+  sentReplyTo: String,
   renderedText: String,
   renderedHtml: String,
   acceptedAt: Date,
