@@ -37,6 +37,12 @@ When receiving mode is selected, startup refuses to enable campaign sending with
 
 ## Processing behavior
 
+### Optional temporary development relay
+
+`node server/scripts/webhookRelay.js` binds only to `127.0.0.1:5001` and accepts only signed JSON POSTs at `/api/webhooks/resend`. It rejects all dashboard/API paths, caps request bodies at 256 KB, limits concurrent requests, and forwards the unchanged payload and signature headers to the local app. Configure the signing secret before starting it.
+
+A temporary Cloudflare Quick Tunnel can point to this restricted relay after separate approval to open the public connection. It runs only while the PC and processes remain active, its hostname changes on restart, and it is for testing rather than a permanent production deployment. No tunnel is started by the application or local launcher.
+
 - Verify the raw webhook signature before database or Resend retrieval work.
 - Persist an incoming-email ledger keyed by Resend email ID. Atomic leases prevent simultaneous duplicate processing. Terminal events are acknowledged without applying them again. Temporary errors return a retryable response; expired processing leases can be recovered on a later event retry.
 - Retrieve email content only from fixed Resend API endpoints, with a 15-second timeout per request. Attachments and raw download URLs are not fetched. No automatic replies or forwards are sent.
