@@ -254,3 +254,18 @@ test("atomic usage reservation never exceeds the allowance under competing reque
   assert.equal(results.filter(Boolean).length, 5);
   assert.equal(count, 5);
 });
+
+test("Resend business-contact approval preserves other eligibility guards", () => {
+  const business = { ...contact, permission: "business_contact" };
+  for (const value of [undefined, false, "true"]) {
+    assert.throws(() => checkSending({ ...safeConfig, resendOutreachApproved: value }, business), /provider approval/);
+  }
+  const approved = { ...safeConfig, resendOutreachApproved: true };
+  assert.doesNotThrow(() => checkSending(approved, business));
+  assert.equal(business.permission, "business_contact");
+  for (const changes of [{ permission: "unknown" }, { emailVerified: false }, { replied: true }, { status: "suppressed" }]) {
+    assert.throws(() => checkSending(approved, { ...business, ...changes }));
+  }
+  assert.throws(() => checkSending({ ...approved, sendingEnabled: false }, business), /disabled/);
+  assert.throws(() => checkSending({ ...approved, postalAddress: "" }, business), /postal address/);
+});

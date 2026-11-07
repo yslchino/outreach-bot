@@ -8,7 +8,8 @@ function checkSending(config, contact) {
   assert(contact && !contact.replied && contact.status !== "suppressed", 409, "This contact is not eligible for outreach.");
   assert(contact.emailVerified === true, 409, "Verify the recipient address before sending.");
   assert(["opted_in", "business_contact"].includes(contact.permission), 409, "Review the recipient's contact permission before sending.");
-  if (config.provider === "resend") assert(contact.permission === "opted_in", 409, "Resend requires an opted-in recipient.");
+  // Account-specific provider approval does not change the contact consent category.
+  if (config.provider === "resend") assert(contact.permission === "opted_in" || config.resendOutreachApproved === true, 409, "Resend requires an opted-in recipient or explicit provider approval for business-contact outreach.");
   if (config.provider === "smtp") assert(process.env.SMTP_OUTREACH_APPROVED === "true" || contact.permission === "opted_in", 409, "Confirm the SMTP provider permits this outreach before enabling it.");
 }
 function dayKey(now, timezone) {
