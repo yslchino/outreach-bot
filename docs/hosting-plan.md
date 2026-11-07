@@ -27,14 +27,14 @@ Set billing alerts before operation. A hard Railway spending stop can interrupt 
 
 ## Existing repository readiness
 
-- railway.json: Nixpacks build, npm run build, node server/index.js, /health readiness, restart on failure.
-- nixpacks.toml: Node 24; npm ci for root and client; Vite build.
+- railway.json: Railpack build; automatically installs root dependencies, then explicitly runs npm ci --prefix client --include=dev before npm run build; node server/index.js, /health readiness, restart on failure.
+- package.json engines pins Node 24.x for Railpack. nixpacks.toml is retained as legacy configuration and is not used by the Railpack builder.
 - server/app.js: serves client/dist, API authentication routes, raw signed webhook parser before JSON parser, database-aware /health.
 - server/index.js: connects database and initializes model indexes before listening; jobs depend on JOBS_ENABLED.
 - server/config.js: production binds 0.0.0.0 by default, accepts Railway PORT; rejects remote MongoDB unless ALLOW_REMOTE_DATABASE=true.
 - Current policy records owner-confirmed Resend outreach approval without changing business_contact to opted_in.
 
-These files were inspected; no deployment configuration was changed by this plan. Verify the current Railway builder still accepts the selected configuration during deployment preparation. Build artifacts remain ephemeral and reproducible.
+The initial plan inspected these files. During staging preparation, railway.json was updated locally to select Railpack and install frontend development dependencies needed by Vite. No service was deployed by this change. Verify the generated Railpack plan and actual build logs before acceptance; a local Vite build is not a container-build verification. Build artifacts remain ephemeral and reproducible.
 
 ## Hosted environment template
 
