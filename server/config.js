@@ -7,6 +7,7 @@ const config = {
   sendingEnabled: process.env.SENDING_ENABLED === "true",
   jobsEnabled: process.env.JOBS_ENABLED === "true",
   provider: process.env.EMAIL_PROVIDER || "disabled",
+  resendOutreachApproved: process.env.RESEND_OUTREACH_APPROVED === "true",
   sender: process.env.EMAIL_FROM || "",
   replyTo: process.env.EMAIL_REPLY_TO || "",
   replyProvider: process.env.REPLY_PROVIDER || "manual",
