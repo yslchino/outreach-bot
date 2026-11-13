@@ -1,5 +1,6 @@
 {
   "name": "outreach-bot",
+  "private": true,
   "version": "2.0.0",
   "description": "GET Logistics shared outreach workspace",
   "main": "index.js",
@@ -15,7 +16,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "engines": {
     "node": "24.x"

@@ -145,3 +145,17 @@ docs/                   Generic setup and operating guidance
 The app targets a small internal team. It does not discover leads, independently verify mailbox ownership, guarantee inbox placement, or guarantee uninterrupted service. The budget display is a planning target, not a provider spending cap. Configure billing alerts, recurring backups, and restore verification separately.
 
 Use one backend replica initially. Review concurrency, deployment topology, rate limits, and recovery before scaling.
+
+## License
+
+This revision is **proprietary**, with all rights reserved. See [LICENSE](LICENSE).
+Public source availability does not grant a general license to reuse, modify,
+or redistribute the application. Rights under GitHub's platform terms and the
+licenses of third-party dependencies remain unchanged. Earlier versions retain
+any permissions validly granted under their applicable notices.
+
+Both application packages use UNLICENSED metadata and are marked private to
+prevent accidental npm publication. This does not change GitHub repository visibility.
+
+A separate reusable framework for other companies may be released in the future
+under its own license. No framework release or reuse license is granted here.
