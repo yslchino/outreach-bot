@@ -47,6 +47,42 @@ function configure(t) {
   Object.assign(config, safeConfig);
   t.after(() => Object.assign(config, previous));
 }
+
+test("SMTP preserves recipients, message identity, and reply headers when composing offline", async t => {
+  configure(t);
+  config.provider = "smtp";
+  // Stream transport composes real MIME in memory without opening an SMTP connection.
+  const transport = require("nodemailer").createTransport({
+    streamTransport: true,
+    buffer: true,
+    newline: "unix"
+  });
+  t.after(() => transport.close());
+  let composed;
+  const result = await sendMessage(message, contact, { rfcMessageId: "<parent@example.com>" }, {
+    transport: {
+      sendMail: async options => {
+        composed = await transport.sendMail(options);
+        // Stream transport has no server receipt; emulate acceptance only for this test.
+        return { ...composed, accepted: composed.envelope.to };
+      }
+    }
+  });
+  const expectedId = "<get-" + message._id + "@example.com>";
+  assert.deepEqual(composed.envelope.to, [message.to]);
+  assert.equal(composed.envelope.from, "team@example.com");
+  assert.equal(result.providerId, expectedId);
+  assert.equal(result.rfcMessageId, expectedId);
+  assert.equal(result.rfcMessageIdVerified, true);
+  const mime = composed.message.toString("utf8");
+  assert.match(mime, /Reply-To: team@example\.com/i);
+  assert.match(mime, /In-Reply-To: <parent@example\.com>/i);
+  assert.match(mime, /References: <parent@example\.com>/i);
+  assert.match(mime, /List-Unsubscribe: <mailto:team@example\.com\?subject=unsubscribe>/i);
+  assert.match(mime, /Content-Type: text\/plain/i);
+  assert.match(mime, /Content-Type: text\/html/i);
+});
+
 function dependencies(overrides = {}) {
   const states = [],
     delivered = [];
