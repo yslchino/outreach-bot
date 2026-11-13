@@ -6,12 +6,20 @@ import Overview from "./pages/Overview";
 import Leads from "./pages/Leads";
 import Campaigns from "./pages/Campaigns";
 import Activity from "./pages/Activity";
+import Inbox from "./pages/Inbox";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
 import "./App.css";
-const navigation = [["overview", "Overview"], ["leads", "Leads"], ["campaigns", "Campaigns"], ["activity", "Activity"], ["team", "Team"], ["settings", "Settings"]];
+import "./theme.css";
+const navigation = [["overview", "Overview"], ["leads", "Leads"], ["campaigns", "Campaigns"], ["inbox", "Inbox"], ["activity", "Activity"], ["team", "Team"], ["settings", "Settings"]];
+function ThemeToggle({ theme, onToggle }) {
+  const label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  return <button type="button" className="icon-button theme-toggle" onClick={onToggle} aria-label={label} title={label} aria-pressed={theme === "dark"}>
+    <Icon name={theme === "dark" ? "sun" : "moon"} size={19} />
+  </button>;
+}
 function Login({
-  onLogin
+  onLogin, theme, onToggleTheme
 }) {
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
@@ -42,6 +50,7 @@ function Login({
       <header className="login-brand">
         <span className="brand-symbol">GL</span>
         <div>GET Logistics<span>Outreach</span></div>
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </header>
       <section className="login-form-wrap" aria-labelledby="sign-in-title">
         <h1 id="sign-in-title">Sign in</h1>
@@ -63,6 +72,19 @@ function Login({
   );
 }
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem("outreach-theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch { /* Theme selection still works when browser storage is unavailable. */ }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("outreach-theme", theme); }
+    catch { /* Retain the selection for this page when persistence is unavailable. */ }
+  }, [theme]);
+  const toggleTheme = () => setTheme(value => value === "dark" ? "light" : "dark");
   const [user, setUser] = useState(null),
     [booting, setBooting] = useState(() => Boolean(sessionStorage.getItem("outreach-session")));
   const [page, setPage] = useState(() => new URLSearchParams(window.location.search).has("outlook") ? "settings" : "overview"),
@@ -127,7 +149,7 @@ export default function App() {
     setPage("overview");
   }
   if (booting) return <div className="boot-screen"><Loading /></div>;
-  if (!user) return <Login onLogin={value => {
+  if (!user) return <Login theme={theme} onToggleTheme={toggleTheme} onLogin={value => {
     setUser(value);
     setNotice(null);
   }} />;
@@ -143,6 +165,7 @@ export default function App() {
     overview: <Overview {...props} />,
     leads: <Leads {...props} />,
     campaigns: <Campaigns {...props} />,
+    inbox: <Inbox {...props} />,
     activity: <Activity {...props} />,
     team: user.role === "admin" ? <Team {...props} /> : <Overview {...props} />,
     settings: <Settings {...props} />
@@ -180,7 +203,7 @@ export default function App() {
           <button className="mobile-menu icon-button" aria-label="Open navigation" aria-expanded={menuOpen}
             aria-controls="workspace-navigation" onClick={() => setMenuOpen(true)}><Icon name="menu" /></button>
           <div className="breadcrumb">Outreach <span>/</span><strong>{navigation.find(([key]) => key === page)?.[1]}</strong></div>
-          <div className="topbar-right"><span className="private-label">GET Logistics LLC</span><span className="topbar-avatar">{user.displayName.slice(0, 1).toUpperCase()}</span></div>
+          <div className="topbar-right"><ThemeToggle theme={theme} onToggle={toggleTheme} /><span className="private-label">GET Logistics LLC</span><span className="topbar-avatar">{user.displayName.slice(0, 1).toUpperCase()}</span></div>
         </header>
         <main>
           {settings.error && <div className="inline-error" role="alert">Couldn't load configuration: {settings.error} <button className="text-button" onClick={settings.reload}>Retry</button></div>}
