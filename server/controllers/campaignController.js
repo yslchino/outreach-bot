@@ -15,6 +15,7 @@ const {
 const {
   generateDraft
 } = require("../services/ai");
+const { snapshotMessage } = require("../services/mailer");
 const summary = async campaign => {
   const groups = await Message.aggregate([{
     $match: {
@@ -144,6 +145,37 @@ async function editMessage(req, res) {
     return message;
   });
   res.json(result);
+}
+async function previewMessage(req, res) {
+  const campaign = await Campaign.findById(v.id(req.params.id));
+  assert(campaign, 404, "Campaign not found.");
+  assert(campaign.status === "draft", 409, "Preview is available for draft campaigns.");
+  const message = await Message.findOne({
+    _id: v.id(req.params.messageId),
+    campaign: campaign._id,
+    status: "draft"
+  });
+  assert(message, 404, "Draft not found in this campaign.");
+  const input = req.body ?? {};
+  assert(typeof input === "object" && !Array.isArray(input), 400, "Preview content must be an object.");
+  const subject = v.text(input.subject ?? message.subject, "Subject", 200);
+  assert(!/[\r\n]/.test(subject), 400, "Subject must be one line.");
+  const body = v.text(input.body ?? message.body, "Email body", 12000);
+  // Compose unsaved edits without changing the draft, acquiring a lock, or contacting a provider.
+  const rendered = snapshotMessage({ _id: message._id, body });
+  res.json({
+    from: rendered.sentFrom,
+    replyTo: rendered.sentReplyTo,
+    to: message.to,
+    subject,
+    html: rendered.renderedHtml,
+    text: rendered.renderedText,
+    missingFields: [
+      !config.sender && "Sender",
+      !config.replyTo && "Reply-to",
+      !config.postalAddress && "Postal address"
+    ].filter(Boolean)
+  });
 }
 async function generate(req, res) {
   res.json(await withDraft(v.id(req.params.id), async campaign => {
@@ -294,6 +326,7 @@ module.exports = {
   detail,
   create,
   editMessage,
+  previewMessage,
   generate,
   launch,
   action,

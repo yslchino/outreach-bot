@@ -130,6 +130,36 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
       body: { confirmed: true }, expected: 409 });
     assert.equal((await Campaign.findById(firstCampaign._id)).status, "draft");
   });
+  await check("authenticated draft preview renders unsaved content without changing messages or approval", async () => {
+    const draft = await Message.findOne({ campaign: firstCampaign._id }).lean();
+    const before = await Message.countDocuments();
+    const previous = { ...config };
+    Object.assign(config, { sender: "LOCAL TEST <test@example.invalid>", replyTo: "replies@example.invalid",
+      postalAddress: "LOCAL TEST POSTAL ADDRESS" });
+    try {
+      const route = "/campaigns/" + firstCampaign._id + "/messages/" + draft._id + "/preview";
+      await request(route, { method: "POST", body: {}, auth: null, expected: 401 });
+      const preview = await request(route, { method: "POST", auth: viewerToken,
+        body: { subject: "LOCAL TEST Unsaved preview", body: "<img src=x onerror=alert(1)>" } });
+      assert.equal(preview.to, draft.to);
+      assert.equal(preview.subject, "LOCAL TEST Unsaved preview");
+      assert.equal(preview.html.includes("<img"), false);
+      assert.equal(preview.html.includes("&lt;img"), true);
+      assert.equal(preview.text.includes("LOCAL TEST POSTAL ADDRESS"), true);
+      const savedPreview = await request(route, { method: "POST", body: {} });
+      assert.equal(savedPreview.subject, draft.subject);
+      await request("/campaigns/" + competingCampaign._id + "/messages/" + draft._id + "/preview",
+        { method: "POST", body: {}, expected: 404 });
+      const after = await Message.findById(draft._id).lean();
+      assert.equal(after.body, draft.body);
+      assert.equal(after.subject, draft.subject);
+      assert.equal(after.status, "draft");
+      assert.equal(after.updatedAt.getTime(), draft.updatedAt.getTime());
+      assert.equal(after.approvedAt, undefined);
+      assert.equal((await Campaign.findById(firstCampaign._id)).status, "draft");
+      assert.equal(await Message.countDocuments(), before);
+    } finally { Object.assign(config, previous); }
+  });
   let accepted, fakeCalls = 0;
   await check("approved queue uses real persistence and a mocked provider; competing campaigns send once", async () => {
     // Only this isolated test process permits approval. The running development app stays disabled.

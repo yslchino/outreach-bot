@@ -38,6 +38,7 @@ router.patch("/contacts/:id", write, workspace.updateContact);
 router.post("/suppressions", write, workspace.addSuppression);
 router.get("/campaigns", campaigns.list);
 router.get("/campaigns/:id", campaigns.detail);
+router.post("/campaigns/:id/messages/:messageId/preview", campaigns.previewMessage);
 router.post("/campaigns", write, campaigns.create);
 router.patch("/campaigns/:id/messages/:messageId", write, campaigns.editMessage);
 router.post("/campaigns/:id/messages/:messageId/generate", write, rateLimit({

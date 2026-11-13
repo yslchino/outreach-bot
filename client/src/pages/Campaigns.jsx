@@ -1,4 +1,5 @@
 import ContactFilters from "../components/ContactFilters";
+import EmailPreview from "../components/EmailPreview";
 import { dateTime } from "../format";
 import { useState } from "react";
 import { api } from "../api";
@@ -86,13 +87,22 @@ function DraftEditor({
   settings
 }) {
   const [subject, setSubject] = useState(message.subject),
-    [body, setBody] = useState(message.body);
+    [body, setBody] = useState(message.body),
+    [preview, setPreview] = useState(null);
   const {
     busy,
     perform
   } = useAction(notify);
   const editable = canWrite && message.status === "draft" && campaign.status === "draft";
-  return <div className="draft-editor"><div className="draft-header"><div><div className="mini-label">{message.kind === "followup" ? "FOLLOW-UP DRAFT" : "INITIAL OUTREACH"}</div><h3>{message.recipientName || message.to}</h3><p>{message.to}</p></div><Badge value={message.status} /></div>
+  return <div className="draft-editor"><div className="draft-header"><div><div className="mini-label">{message.kind === "followup" ? "FOLLOW-UP DRAFT" : "INITIAL OUTREACH"}</div><h3>{message.recipientName || message.to}</h3><p>{message.to}</p></div><div className="button-row">
+      {message.status === "draft" && campaign.status === "draft" && <button className="button secondary small" disabled={busy || !subject.trim() || !body.trim()} onClick={async () => {
+        const result = await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id + "/preview", {
+          method: "POST",
+          body: editable ? { subject, body } : {}
+        }));
+        if (result) setPreview(result);
+      }}>Preview email</button>}
+      <Badge value={message.status} /></div></div>
     {editable ? <><Field label="Subject"><input value={subject} maxLength={200} onChange={e => setSubject(e.target.value)} /></Field><Field label="Message"><textarea className="email-editor" rows={12} value={body} maxLength={12000} onChange={e => setBody(e.target.value)} /></Field><div className="editor-footer"><span>{body.split(/\s+/).filter(Boolean).length} words · Saved only when you click Save</span><div className="button-row"><button className="button secondary small" disabled={busy || !settings?.aiEnabled} title={!settings?.aiEnabled ? "Enable AI in server configuration first" : "Uses one monthly AI draft"} onClick={async () => {
             if (body !== message.body && !window.confirm("Replace your unsaved text with an AI draft?")) return;
             if (await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id + "/generate", {
@@ -107,6 +117,7 @@ function DraftEditor({
               }
             }), "Draft saved.")) onSaved();
           }}>Save draft</button></div></div></> : <><h4>{message.subject}</h4><div className="email-body">{message.body}</div>{message.error && <p className="inline-warning">{message.error}</p>}<div className="message-foot">Accepted: {dateTime(message.acceptedAt)} · Delivery: {message.deliveryStatus || "unknown"}</div></>}
+    {preview && <EmailPreview preview={preview} unsaved={editable && (subject !== message.subject || body !== message.body)} onClose={() => setPreview(null)} />}
   </div>;
 }
 function CampaignDetail({

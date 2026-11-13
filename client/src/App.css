@@ -520,3 +520,11 @@ tbody tr:hover { background: #fafbfd; }
 }
 .outlook-connection-content { padding: 0 24px 24px; }
 .outlook-connection-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+.email-preview-headers { margin: 0 0 20px; }
+.email-preview-headers > div { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.email-preview-headers dt { color: var(--muted); }
+.email-preview-headers dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.email-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.email-preview-frame, .email-preview-text { width: 100%; min-height: 350px; height: 45vh; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.email-preview-text { padding: 20px; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
