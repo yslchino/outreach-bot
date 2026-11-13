@@ -10,3 +10,14 @@ server/data/
 client/dist/
 coverage/
 .local/
+
+# Private contact exports, database backups, and key material.
+*.csv
+*.xls
+*.xlsx
+*.bson
+*.dump
+*.pem
+*.key
+*.p12
+*.pfx
