@@ -37,3 +37,9 @@ Set provider billing alerts and limits. A Railway hard spending limit can stop b
 5. Review complete rendered emails and postal/opt-out details before approving a campaign.
 
 A push, deployment, or migration does not authorize sending. Do not clear suppression or message history as a deployment repair.
+
+## Selected approval and worker holds
+
+POST /api/campaigns/:id/launch requires confirmed=true and a nonempty, unique messageIds array (maximum 100). Each ID must be a current draft in that campaign; omitted selections do not mean approve all. Deploy the matching client and server together. Approval remains administrator-only and all sending/eligibility checks still apply.
+
+The worker serializes each campaign with a database claim and pauses after provider failure, unknown delivery outcome, or interrupted processing. A later tick also holds recent failures, bounces, and complaints before advancing. Resolve uncertain/processing records and review provider evidence before confirming resume; this resumes only queued messages. A pause or hold cannot recall in-flight provider requests. Keep sending and jobs disabled during rollout and preserve receipt/idempotency records.

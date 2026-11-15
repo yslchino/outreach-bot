@@ -36,6 +36,11 @@ const schema = new mongoose.Schema({
   },
   approvedAt: Date,
   pausedAt: Date,
+  pauseReason: String,
+  failureReviewedAt: Date,
+  // A database claim serializes sends across worker processes for this campaign.
+  workerToken: String,
+  workerStartedAt: Date,
   followUpDays: {
     type: Number,
     min: 3,

@@ -125,9 +125,9 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
     const saved = await request("/campaigns/" + firstCampaign._id);
     assert.equal(saved.messages[0].body, "LOCAL TEST body saved before approval.");
     await request("/campaigns/" + firstCampaign._id + "/launch", { method: "POST", auth: operatorToken,
-      body: { confirmed: true }, expected: 403 });
+      body: { confirmed: true, messageIds: (await Message.find({ campaign: firstCampaign._id, status: "draft" })).map(item => String(item._id)) }, expected: 403 });
     await request("/campaigns/" + firstCampaign._id + "/launch", { method: "POST",
-      body: { confirmed: true }, expected: 409 });
+      body: { confirmed: true, messageIds: (await Message.find({ campaign: firstCampaign._id, status: "draft" })).map(item => String(item._id)) }, expected: 409 });
     assert.equal((await Campaign.findById(firstCampaign._id)).status, "draft");
   });
   await check("authenticated draft preview renders unsaved content without changing messages or approval", async () => {
@@ -160,7 +160,7 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
       assert.equal(await Message.countDocuments(), before);
     } finally { Object.assign(config, previous); }
   });
-  let accepted, fakeCalls = 0;
+  let accepted, fakeCalls = 0, fakeProviderBehavior = null;
   await check("approved queue uses real persistence and a mocked provider; competing campaigns send once", async () => {
     // Only this isolated test process permits approval. The running development app stays disabled.
     Object.assign(config, { sendingEnabled: true, provider: "resend", sender: "LOCAL TEST <test@example.invalid>",
@@ -169,12 +169,13 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
     t.mock.method(mailer, "sendMessage", async (message) => {
       assert.equal(message.to.endsWith(".invalid"), true);
       fakeCalls++;
+      if (fakeProviderBehavior) return fakeProviderBehavior(message);
       return { providerId: "local-mock-" + message._id,
         rfcMessageId: "<get-" + message._id + "@example.invalid>", sentFrom: config.sender };
     });
     const { tick } = require("../services/worker");
-    await request("/campaigns/" + firstCampaign._id + "/launch", { method: "POST", body: { confirmed: true } });
-    await request("/campaigns/" + competingCampaign._id + "/launch", { method: "POST", body: { confirmed: true } });
+    await request("/campaigns/" + firstCampaign._id + "/launch", { method: "POST", body: { confirmed: true, messageIds: (await Message.find({ campaign: firstCampaign._id, status: "draft" })).map(item => String(item._id)) } });
+    await request("/campaigns/" + competingCampaign._id + "/launch", { method: "POST", body: { confirmed: true, messageIds: (await Message.find({ campaign: competingCampaign._id, status: "draft" })).map(item => String(item._id)) } });
     await tick();
     assert.equal(fakeCalls, 1);
     assert.equal(await Message.countDocuments({ status: "accepted" }), 1);
@@ -197,7 +198,7 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
     const details = await request("/campaigns/" + accepted.campaign);
     const followup = details.messages.find((message) => message.kind === "followup");
     assert.equal(followup.status, "draft");
-    await request("/campaigns/" + accepted.campaign + "/launch", { method: "POST", body: { confirmed: true } });
+    await request("/campaigns/" + accepted.campaign + "/launch", { method: "POST", body: { confirmed: true, messageIds: (await Message.find({ campaign: accepted.campaign, status: "draft" })).map(item => String(item._id)) } });
     await request("/contacts/" + leads[0]._id, { method: "PATCH", body: { replied: true } });
     await tick();
     assert.equal((await Message.findById(followup._id)).status, "skipped");
@@ -444,6 +445,175 @@ test("isolated local MongoDB workflow, with no live email or AI provider", { tim
       if (previousSecret === undefined) delete process.env.RESEND_WEBHOOK_SECRET; else process.env.RESEND_WEBHOOK_SECRET = previousSecret;
     }
   });
+  const worker = require("../services/worker");
+  const fixtureOwner = (await User.findOne({ seat: 1 }))._id;
+  async function safetyFixture(label, count = 3) {
+    const contacts = await Contact.create(Array.from({ length: count }, (_, index) => ({
+      name: "LOCAL TEST " + label + " " + index, email: crypto.randomUUID() + "@example.invalid",
+      audience: "shipper", emailVerified: true, permission: "business_contact"
+    })));
+    const campaign = await Campaign.create({ name: "LOCAL TEST " + label, subject: "LOCAL TEST", audience: "shipper", createdBy: fixtureOwner });
+    const messages = await Message.create(contacts.map(lead => ({ campaign: campaign._id, contact: lead._id, to: lead.email,
+      subject: "LOCAL TEST", body: "Synthetic fixture only" })));
+    return { campaign, contacts, messages, ids: messages.map(item => String(item._id)), route: "/campaigns/" + campaign._id };
+  }
+  async function inSendingTest(operation) {
+    const before = { ...config };
+    Object.assign(config, { sendingEnabled: true, provider: "resend", sender: "LOCAL TEST <test@example.invalid>",
+      replyTo: "test@example.invalid", postalAddress: "LOCAL TEST ADDRESS", dailyLimit: 100, resendOutreachApproved: true });
+    try { await operation(); } finally { fakeProviderBehavior = null; Object.assign(config, before); }
+  }
+  await check("selected approval requires exact same-campaign drafts and leaves all other drafts unapproved", async () => inSendingTest(async () => {
+    const fixture = await safetyFixture("Selected approval");
+    const foreign = await safetyFixture("Foreign selection", 1);
+    for (const messageIds of [undefined, [], [fixture.ids[0], fixture.ids[0]], ["invalid"]]) {
+      await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds }, expected: 400 });
+    }
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: [fixture.ids[0], foreign.ids[0]] }, expected: 409 });
+    await Contact.updateOne({ _id: fixture.contacts[1]._id }, { $set: { emailVerified: false } });
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids.slice(0, 2) }, expected: 409 });
+    assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 0);
+    await request(fixture.route + "/launch", { method: "POST", auth: operatorToken, body: { confirmed: true, messageIds: [fixture.ids[0]] }, expected: 403 });
+    const approvals = await Promise.all([200, 409].map(() => fetch(base + "/api" + fixture.route + "/launch", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ confirmed: true, messageIds: [fixture.ids[0]] })
+    })));
+    assert.deepEqual(approvals.map(item => item.status).sort(), [200, 409]);
+    assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "draft", approvedAt: { $exists: false } }), 2);
+    await worker.tick();
+    assert.equal((await Message.findById(fixture.ids[0])).status, "accepted");
+    assert.equal((await Campaign.findById(fixture.campaign._id)).status, "draft");
+    assert.equal((await Contact.findById(fixture.contacts[0]._id)).permission, "business_contact");
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: [fixture.ids[0], fixture.ids[2]] }, expected: 409 });
+    assert.equal((await Message.findById(fixture.ids[2])).status, "draft");
+  }));
+  await check("concurrent worker ticks cannot claim the next campaign message while a provider call is in flight", async () => inSendingTest(async () => {
+    const fixture = await safetyFixture("Worker serialization", 2);
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+    let release, entered;
+    const enteredPromise = new Promise(resolve => { entered = resolve; });
+    const pending = new Promise(resolve => { release = resolve; });
+    let calls = 0;
+    fakeProviderBehavior = async message => { calls++; entered(); await pending; return { providerId: "mock-serialized-" + message._id }; };
+    const firstTick = worker.tick();
+    await enteredPromise;
+    try {
+      await worker.tick();
+      assert.equal(calls, 1);
+      const publicDetail = await request(fixture.route);
+      assert.equal("workerToken" in publicDetail, false);
+      assert.equal("workerStartedAt" in publicDetail, false);
+      assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "processing" }), 1);
+      assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 1);
+    } finally { release(); await firstTick; }
+    await worker.tick();
+    assert.equal(calls, 2);
+    assert.equal((await Campaign.findById(fixture.campaign._id)).workerToken, undefined);
+  }));
+  for (const definitive of [true, false]) {
+    await check((definitive ? "provider rejection" : "provider uncertainty") + " automatically pauses the queue and requires safe explicit resume", async () => inSendingTest(async () => {
+      const fixture = await safetyFixture(definitive ? "Provider rejected" : "Provider uncertain");
+      await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+      let calls = 0;
+      fakeProviderBehavior = async () => { calls++; throw Object.assign(new Error("LOCAL TEST provider failure"), { definitive }); };
+      await worker.tick();
+      const failed = await Message.findOne({ campaign: fixture.campaign._id, status: definitive ? "failed" : "uncertain" });
+      assert.ok(failed); assert.equal(failed.attempt, 1);
+      assert.equal((await Campaign.findById(fixture.campaign._id)).status, "paused");
+      assert.ok((await Campaign.findById(fixture.campaign._id)).pauseReason);
+      await worker.tick(); assert.equal(calls, 1);
+      assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 2);
+      if (!definitive) {
+        await request(fixture.route + "/action", { method: "POST", body: { action: "resume", confirmed: true }, expected: 409 });
+        await request("/messages/" + failed._id + "/resolve", { method: "POST", body: { outcome: "not_sent", note: "LOCAL TEST mock confirms not accepted. No retry authorized." } });
+      }
+      await request(fixture.route + "/action", { method: "POST", body: { action: "resume" }, expected: 400 });
+      fakeProviderBehavior = async message => { calls++; return { providerId: "mock-resumed-" + message._id }; };
+      await request(fixture.route + "/action", { method: "POST", body: { action: "resume", confirmed: true } });
+      await worker.tick(); await worker.tick();
+      assert.equal(calls, 3);
+      assert.equal((await Message.findById(failed._id)).status, "failed");
+      assert.equal((await Message.findById(failed._id)).attempt, 1);
+    }));
+  }
+  await check("lost receipt persistence pauses before another attempt and never retries the uncertain message", async () => inSendingTest(async () => {
+    const fixture = await safetyFixture("Receipt persistence failure", 2);
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+    let calls = 0;
+    fakeProviderBehavior = async message => { calls++; return { providerId: "mock-unpersisted-" + message._id }; };
+    const originalUpdate = Message.updateOne.bind(Message);
+    const failure = t.mock.method(Message, "updateOne", (filter, update, ...rest) => {
+      if (update.$set?.status === "accepted" && fixture.ids.includes(String(filter._id))) throw new Error("LOCAL TEST receipt write failed");
+      return originalUpdate(filter, update, ...rest);
+    });
+    try { await worker.tick(); } finally { failure.mock.restore(); }
+    assert.equal((await Campaign.findById(fixture.campaign._id)).status, "paused");
+    assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "uncertain" }), 1);
+    await worker.tick(); assert.equal(calls, 1);
+    assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 1);
+  }));
+  await check("failed pause writes cannot allow the next tick to advance the queue", async () => inSendingTest(async () => {
+    const fixture = await safetyFixture("Pause persistence failure", 2);
+    await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+    let calls = 0, failedWrites = 0;
+    fakeProviderBehavior = async () => { calls++; throw Object.assign(new Error("LOCAL TEST rejection"), { definitive: true }); };
+    const originalUpdate = Campaign.updateOne.bind(Campaign);
+    const failure = t.mock.method(Campaign, "updateOne", (filter, update, ...rest) => {
+      if (String(filter._id) === String(fixture.campaign._id) && update.$set?.status === "paused" && failedWrites++ < 2) throw new Error("LOCAL TEST pause write failed");
+      return originalUpdate(filter, update, ...rest);
+    });
+    try { await assert.rejects(worker.tick(), /pause write failed/); } finally { failure.mock.restore(); }
+    await worker.tick();
+    assert.equal(calls, 1);
+    assert.equal((await Campaign.findById(fixture.campaign._id)).status, "paused");
+    assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 1);
+  }));
+  await check("stale worker claims pause before recovery and processing messages block resume", async () => inSendingTest(async () => {
+    const fixture = await safetyFixture("Stale worker claim", 2);
+    const stale = new Date(Date.now() - 3 * 60000);
+    await Campaign.updateOne({ _id: fixture.campaign._id }, { $set: { status: "running", workerToken: "LOCAL TEST stale claim", workerStartedAt: stale } });
+    await Message.updateOne({ _id: fixture.ids[0] }, { $set: { status: "processing", startedAt: stale, attempt: 1 } });
+    await Message.updateOne({ _id: fixture.ids[1] }, { $set: { status: "queued" } });
+    let calls = 0; fakeProviderBehavior = async () => { calls++; throw new Error("Must not deliver"); };
+    await worker.tick(); await worker.tick();
+    assert.equal(calls, 0);
+    assert.equal((await Campaign.findById(fixture.campaign._id)).status, "paused");
+    assert.equal((await Campaign.findById(fixture.campaign._id)).workerToken, undefined);
+    assert.equal((await Message.findById(fixture.ids[0])).status, "uncertain");
+    await request(fixture.route + "/action", { method: "POST", body: { action: "resume", confirmed: true }, expected: 409 });
+    await Message.updateOne({ _id: fixture.ids[0] }, { $set: { status: "processing", startedAt: new Date() } });
+    await request(fixture.route + "/action", { method: "POST", body: { action: "resume", confirmed: true }, expected: 409 });
+  }));
+  await check("late bounce and complaint events hold the next queued message without retrying accepted mail", async () => inSendingTest(async () => {
+    for (const deliveryStatus of ["bounced", "complained"]) {
+      const fixture = await safetyFixture("Late " + deliveryStatus, 2);
+      await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+      let calls = 0;
+      fakeProviderBehavior = async message => { calls++; return { providerId: "mock-delivery-event-" + message._id }; };
+      await worker.tick();
+      await Message.updateOne({ campaign: fixture.campaign._id, status: "accepted" }, { $set: { deliveryStatus } });
+      await worker.tick(); await worker.tick();
+      assert.equal(calls, 1);
+      assert.equal((await Campaign.findById(fixture.campaign._id)).status, "paused");
+      assert.equal(await Message.countDocuments({ campaign: fixture.campaign._id, status: "queued" }), 1);
+    }
+  }));
+  await check("a failed campaign pauses independently while an unrelated approved campaign can complete", async () => inSendingTest(async () => {
+    const failed = await safetyFixture("Independent failed", 2);
+    const healthy = await safetyFixture("Independent healthy", 1);
+    for (const fixture of [failed, healthy]) await request(fixture.route + "/launch", { method: "POST", body: { confirmed: true, messageIds: fixture.ids } });
+    const attempts = [];
+    fakeProviderBehavior = async message => {
+      attempts.push(String(message.campaign));
+      if (String(message.campaign) === String(failed.campaign._id)) throw Object.assign(new Error("LOCAL TEST rejection"), { definitive: true });
+      return { providerId: "mock-healthy-" + message._id };
+    };
+    await worker.tick(); await worker.tick();
+    assert.equal(attempts.filter(id => id === String(failed.campaign._id)).length, 1);
+    assert.equal(attempts.filter(id => id === String(healthy.campaign._id)).length, 1);
+    assert.equal((await Campaign.findById(failed.campaign._id)).status, "paused");
+    assert.equal((await Campaign.findById(healthy.campaign._id)).status, "completed");
+  }));
   const output = path.resolve(__dirname, "../../.local/integration-result.json");
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.writeFileSync(output, JSON.stringify({ completedAt: new Date().toISOString(), database,

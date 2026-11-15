@@ -532,3 +532,6 @@ tbody tr:hover { background: #fafbfd; }
 .draft-navigation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .draft-save-status { color: inherit; font-weight: 600; }
 .draft-save-status.unsaved { text-decoration: underline; text-underline-offset: 3px; }
+
+.approval-list { border: 1px solid var(--line); border-radius: 6px; max-height: 45vh; overflow: auto; padding: 12px; }
+.approval-list .checkbox-label { color: inherit; overflow-wrap: anywhere; }

@@ -159,6 +159,8 @@ function CampaignDetail({
   const leaveGuardRef = useRef(() => ({ busy: false, dirty: false }));
   const [editorRevision, setEditorRevision] = useState(0);
   const [pendingLeave, setPendingLeave] = useState(null);
+  const [approvalSelection, setApprovalSelection] = useState(null);
+  const [resumeOpen, setResumeOpen] = useState(false);
   const {
     busy,
     perform
@@ -191,6 +193,8 @@ function CampaignDetail({
   };
   const saved = nextId => { setSelected(nextId); refresh(); };
   const admin = user.role === "admin";
+  const drafts = data.messages.filter(item => item.status === "draft");
+  const approvalIds = (approvalSelection || []).filter(messageId => drafts.some(item => item._id === messageId));
   return <><Modal title={data.name} subtitle={data.audience + " campaign · " + data.total + " messages"} onClose={close} wide>
     <div className="campaign-detail-top"><Badge value={data.status} /><div className="button-row">
       {admin && data.status === "draft" && <button className="button primary small" disabled={busy || !settings?.sendingEnabled} onClick={async () => {
@@ -199,22 +203,14 @@ function CampaignDetail({
             notify("Save or discard your current edits before approving the campaign.", "error");
             return;
           }
-          if (!window.confirm("Approve and queue ALL saved drafts in this campaign? Unsaved edits are not included. Messages will send when background jobs are enabled.")) return;
-          if (await perform(() => api("/campaigns/" + id + "/launch", {
-            method: "POST",
-            body: {
-              confirmed: true
-            }
-          }), "Campaign approved and queued.")) refresh();
-        }}><Icon name="campaigns" size={15} /> Approve & queue</button>}
+          setApprovalSelection([message?.status === "draft" ? message._id : drafts[0]?._id].filter(Boolean));
+        }}><Icon name="campaigns" size={15} /> Approve drafts</button>}
       {admin && ["queued", "running", "paused"].includes(data.status) && <button className="button secondary small" disabled={busy} onClick={async () => {
+          if (data.status === "paused") { setResumeOpen(true); return; }
           if (await perform(() => api("/campaigns/" + id + "/action", {
-            method: "POST",
-            body: {
-              action: data.status === "paused" ? "resume" : "pause"
-            }
-          }), "Campaign updated.")) refresh();
-        }}>{data.status === "paused" ? "Resume" : "Pause"}</button>}
+            method: "POST", body: { action: "pause" }
+          }), "Campaign paused.")) refresh();
+        }}>{data.status === "paused" ? "Review & resume" : "Pause"}</button>}
       {user.role !== "viewer" && data.status === "completed" && <button className="button secondary small" disabled={busy} onClick={async () => {
           const result = await perform(() => api("/campaigns/" + id + "/followups", {
             method: "POST"
@@ -226,11 +222,46 @@ function CampaignDetail({
         }}>Prepare due follow-ups</button>}
       <button className="button secondary small" disabled={busy} onClick={reviewRefresh}>Refresh</button>
     </div></div>
+    {data.pauseReason && <p className="inline-warning" role="status">Campaign paused for review: {data.pauseReason}</p>}
     {!settings?.sendingEnabled && <div className="draft-mode-note"><Icon name="team" size={16} /> Sending is disabled. Drafts can be reviewed and saved.</div>}
     {["queued", "running"].includes(data.status) && !settings?.jobsEnabled && <div className="draft-mode-note">Background jobs are disabled. Approved messages remain queued.</div>}
     {!admin && data.status === "draft" && <div className="draft-mode-note">An administrator must approve this campaign before it can send.</div>}
     {message ? <div className="review-layout"><aside className="recipient-list"><div className="mini-label">RECIPIENTS</div>{data.messages.map(m => <button key={m._id} className={message._id === m._id ? "selected" : ""} onClick={() => navigate(data.messages.indexOf(m))} aria-current={message._id === m._id ? "true" : undefined}><strong>{m.recipientName || m.to}</strong><span>{m.company || m.to}</span><Badge value={m.status} /></button>)}</aside><DraftEditor key={message._id + message.updatedAt + editorRevision} message={message} campaign={data} notify={notify} onSaved={saved} canWrite={user.role !== "viewer"} settings={settings} leaveGuardRef={leaveGuardRef} position={position} total={data.messages.length} onNavigate={navigate} nextId={data.messages[position + 1]?._id} /></div> : <Empty title="No messages in this campaign" description="This campaign was interrupted during creation. Create another campaign with your leads." />}
   </Modal>
+    {approvalSelection !== null && <Modal title="Approve selected drafts" subtitle="Only checked saved drafts will enter the sending queue." onClose={() => { if (!busy) setApprovalSelection(null); }}>
+      <div className="modal-content">
+        <p>From: {settings?.sender || "Not configured"}<br />Reply-to: {settings?.replyTo || "Not configured"}</p>
+        <div className="button-row" role="group" aria-label="Draft selection presets">
+          {[1, 5, 10].map(size => <button key={size} type="button" className="button secondary small" disabled={busy || drafts.length < size}
+            aria-pressed={approvalIds.length === size && drafts.slice(0, size).every(item => approvalIds.includes(item._id))}
+            title={drafts.length < size ? "Only " + drafts.length + " drafts available" : "Select the first " + size + " saved drafts in review order"}
+            onClick={() => setApprovalSelection(drafts.slice(0, size).map(item => item._id))}>Select {size}</button>)}
+        </div>
+        <p className="muted small-text">Presets select the first drafts in review order. Check the recipients below before approving.</p>
+        <fieldset disabled={busy} className="approval-list"><legend>Choose saved drafts</legend>
+          {drafts.map(item => <label key={item._id} className="checkbox-label"><input type="checkbox" checked={approvalIds.includes(item._id)} onChange={event => setApprovalSelection(previous => event.target.checked ? [...previous, item._id] : previous.filter(messageId => messageId !== item._id))} />
+            <span><strong>{item.recipientName || item.to}</strong><br />{item.to}<br />{item.subject}</span></label>)}
+        </fieldset>
+        <p role="status">{approvalIds.length} selected · {drafts.length - approvalIds.length} will remain drafts.</p>
+        <p>{settings?.jobsEnabled ? "Selected messages can send as soon as you approve them." : "Background jobs are disabled. Selected messages will remain queued until jobs are enabled."}</p>
+        <div className="modal-actions"><button className="button secondary" disabled={busy} onClick={() => setApprovalSelection(null)}>Cancel</button>
+          <button className="button primary" disabled={busy || !settings?.sendingEnabled || !approvalIds.length} onClick={async () => {
+            if (leaveGuardRef.current().dirty || leaveGuardRef.current().busy) { notify("Save or discard your current edits before approving drafts.", "error"); return; }
+            if (await perform(() => api("/campaigns/" + id + "/launch", { method: "POST", body: { confirmed: true, messageIds: approvalIds } }), "Selected drafts approved and queued.")) {
+              setApprovalSelection(null); refresh();
+            }
+          }}>Approve &amp; queue {approvalIds.length}</button></div>
+      </div>
+    </Modal>}
+    {resumeOpen && <Modal title="Resume queued messages" onClose={() => { if (!busy) setResumeOpen(false); }}>
+      <div className="modal-content"><p>{data.pauseReason || "This campaign was paused."}</p>
+        <p>Review provider records and resolve every uncertain or processing message first. Resuming allows only already queued messages to continue; failed messages are not retried and drafts stay unapproved.</p>
+        <div className="modal-actions"><button className="button secondary" disabled={busy} onClick={() => setResumeOpen(false)}>Keep paused</button>
+          <button className="button primary" disabled={busy || !settings?.sendingEnabled} onClick={async () => {
+            if (await perform(() => api("/campaigns/" + id + "/action", { method: "POST", body: { action: "resume", confirmed: true } }), "Campaign resumed.")) { setResumeOpen(false); refresh(); }
+          }}>Resume queued messages</button></div>
+      </div>
+    </Modal>}
     {pendingLeave && <Modal title="Unsaved draft changes" subtitle="Save your draft first, or discard your edits to continue." onClose={() => setPendingLeave(null)}>
       <div className="modal-content"><p>Your changes have not been saved.</p>
         <div className="modal-actions"><button className="button secondary" autoFocus onClick={() => setPendingLeave(null)}>Keep editing</button>

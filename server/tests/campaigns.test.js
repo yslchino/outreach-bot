@@ -97,7 +97,8 @@ test("one ineligible recipient prevents approval of the whole batch", async t =>
       id
     },
     body: {
-      confirmed: true
+      confirmed: true,
+      messageIds: ["012345678901234567890124", "012345678901234567890125"]
     },
     user: {
       _id: id
@@ -183,4 +184,23 @@ test("follow-up response waits until the campaign lock is released", async (t) =
   release();
   await operation;
   assert.equal(res.body.created, 0);
+});
+
+
+test("approval rejects missing, empty, duplicate, malformed, or oversized draft selections before locking", async t => {
+  const lock = t.mock.method(Campaign, "findOneAndUpdate", async () => assert.fail("Invalid selection must not lock a campaign"));
+  for (const messageIds of [undefined, [], [id, id], [id, id.toUpperCase()], ["invalid"], [null], Array(101).fill(id), "all"]) {
+    await assert.rejects(launch({ params: { id }, body: { confirmed: true, messageIds }, user: { _id: id } }, response()), error => error.status === 400);
+  }
+  assert.equal(lock.mock.callCount(), 0);
+});
+
+test("a stale or foreign draft selection never queues a partial subset", async t => {
+  t.mock.method(Campaign, "findOneAndUpdate", async () => ({ _id: id }));
+  t.mock.method(Campaign, "updateOne", async () => ({}));
+  t.mock.method(Message, "exists", async () => false);
+  t.mock.method(Message, "find", async () => []);
+  const update = t.mock.method(Message, "updateMany", async () => assert.fail("No draft should be queued"));
+  await assert.rejects(launch({ params: { id }, body: { confirmed: true, messageIds: [id] }, user: { _id: id } }, response()), error => error.status === 409);
+  assert.equal(update.mock.callCount(), 0);
 });

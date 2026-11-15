@@ -29,8 +29,11 @@ const summary = async campaign => {
       }
     }
   }]);
+  const publicCampaign = campaign.toObject();
+  delete publicCampaign.workerToken;
+  delete publicCampaign.workerStartedAt;
   return {
-    ...campaign.toObject(),
+    ...publicCampaign,
     counts: Object.fromEntries(groups.map(g => [g._id, g.count])),
     total: groups.reduce((sum, g) => sum + g.count, 0)
   };
@@ -49,7 +52,8 @@ async function detail(req, res) {
     messages: await Message.find({
       campaign: campaign._id
     }).sort({
-      createdAt: 1
+      createdAt: 1,
+      _id: 1
     }).lean()
   });
 }
@@ -194,14 +198,18 @@ async function generate(req, res) {
 }
 async function launch(req, res) {
   const campaignId = v.id(req.params.id);
-  assert(req.body.confirmed === true, 400, "Review and confirm the campaign first.");
+  assert(req.body?.confirmed === true, 400, "Review and confirm the campaign first.");
+  assert(Array.isArray(req.body.messageIds) && req.body.messageIds.length > 0 && req.body.messageIds.length <= 100, 400, "Select between 1 and 100 drafts to approve.");
+  const messageIds = req.body.messageIds.map(value => v.id(value).toLowerCase());
+  assert(new Set(messageIds).size === messageIds.length, 400, "Select each draft only once.");
   // Validation happens under the same lock used for editing.
   await withDraft(campaignId, async campaign => {
     const messages = await Message.find({
+      _id: { $in: messageIds },
       campaign: campaign._id,
       status: "draft"
     });
-    assert(messages.length > 0, 409, "No drafts to approve.");
+    assert(messages.length === messageIds.length, 409, "Some selected drafts are missing, already approved, or belong to another campaign. Refresh and review the selection.");
     for (const message of messages) {
       const contact = await Contact.findById(message.contact);
       checkSending(config, contact);
@@ -210,8 +218,9 @@ async function launch(req, res) {
       })), 409, "A recipient is suppressed.");
       assert(message.body && message.subject, 400, "Every message needs a subject and body.");
     }
-    // Only after every draft passes validation do messages enter the durable queue.
+    // Only the explicitly selected drafts enter the queue after every selected recipient passes.
     await Message.updateMany({
+      _id: { $in: messageIds },
       campaign: campaign._id,
       status: "draft"
     }, {
@@ -233,23 +242,33 @@ async function launch(req, res) {
     });
   });
   res.json({
-    success: true
+    success: true,
+    queued: messageIds.length
   });
 }
 async function action(req, res) {
   const id = v.id(req.params.id);
   const action = req.body.action;
   assert(["pause", "resume"].includes(action), 400, "Unknown campaign action.");
-  if (action === "resume") assert(config.sendingEnabled, 409, "Sending is disabled.");
+  if (action === "resume") {
+    assert(config.sendingEnabled, 409, "Sending is disabled.");
+    const paused = await Campaign.findById(id);
+    assert(paused?.status === "paused", 409, "Campaign cannot perform that action in its current state.");
+    assert(!paused.workerToken, 409, "Wait for the current send attempt to finish before resuming.");
+    assert(!(await Message.exists({ campaign: id, status: { $in: ["processing", "uncertain"] } })), 409, "Reconcile uncertain or processing messages before resuming.");
+    assert(!paused.pauseReason || req.body.confirmed === true, 400, "Review the send failure and confirm before resuming queued messages.");
+  }
   const campaign = await Campaign.findOneAndUpdate({
     _id: id,
+    ...(action === "resume" ? { workerToken: { $exists: false } } : {}),
     status: {
       $in: action === "pause" ? ["queued", "running"] : ["paused"]
     }
   }, {
     $set: {
       status: action === "pause" ? "paused" : "queued",
-      pausedAt: action === "pause" ? new Date() : null
+      pausedAt: action === "pause" ? new Date() : null,
+      ...(action === "resume" ? { pauseReason: "", failureReviewedAt: new Date() } : {})
     }
   }, {
     returnDocument: "after"
