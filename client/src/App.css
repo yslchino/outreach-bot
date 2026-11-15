@@ -528,3 +528,7 @@ tbody tr:hover { background: #fafbfd; }
 .email-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .email-preview-frame, .email-preview-text { width: 100%; min-height: 350px; height: 45vh; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
 .email-preview-text { padding: 20px; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+
+.draft-navigation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.draft-save-status { color: inherit; font-weight: 600; }
+.draft-save-status.unsaved { text-decoration: underline; text-underline-offset: 3px; }

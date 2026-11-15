@@ -78,7 +78,12 @@ export function Modal({
       previous?.focus();
     };
   }, []);
-  return <dialog ref={ref} aria-labelledby={titleId} className={`modal ${wide ? "modal-wide" : ""}`} onCancel={onClose} onClick={event => {
+  return <dialog ref={ref} aria-labelledby={titleId} className={`modal ${wide ? "modal-wide" : ""}`} onCancel={event => {
+    // Native Escape must not close a dialog after its owner cancels dismissal.
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  }} onClick={event => {
     if (event.target === ref.current) onClose();
   }}>
     <div className="modal-header"><div><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button className="icon-button" aria-label="Close dialog" onClick={onClose}><Icon name="close" /></button></div>

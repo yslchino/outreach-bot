@@ -1,7 +1,7 @@
 import ContactFilters from "../components/ContactFilters";
 import EmailPreview from "../components/EmailPreview";
 import { dateTime } from "../format";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useAction, useResource } from "../hooks";
 import { Badge, Empty, Field, Icon, Loading, Modal, PageHeader, Pagination, ResourceError } from "../components/UI";
@@ -84,7 +84,12 @@ function DraftEditor({
   notify,
   onSaved,
   canWrite,
-  settings
+  settings,
+  leaveGuardRef,
+  position,
+  total,
+  onNavigate,
+  nextId
 }) {
   const [subject, setSubject] = useState(message.subject),
     [body, setBody] = useState(message.body),
@@ -94,7 +99,30 @@ function DraftEditor({
     perform
   } = useAction(notify);
   const editable = canWrite && message.status === "draft" && campaign.status === "draft";
-  return <div className="draft-editor"><div className="draft-header"><div><div className="mini-label">{message.kind === "followup" ? "FOLLOW-UP DRAFT" : "INITIAL OUTREACH"}</div><h3>{message.recipientName || message.to}</h3><p>{message.to}</p></div><div className="button-row">
+  const dirty = editable && (subject !== message.subject || body !== message.body);
+  useEffect(() => {
+    leaveGuardRef.current = () => ({ busy, dirty });
+    return () => { leaveGuardRef.current = () => ({ busy: false, dirty: false }); };
+  }, [busy, dirty, leaveGuardRef]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = event => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  async function save(next = false) {
+    const result = await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id, {
+      method: "PATCH", body: { subject, body }
+    }), "Draft saved.");
+    // Navigation follows the confirmed save; failure must leave the editor intact.
+    if (result) onSaved(next ? nextId : message._id);
+  }
+
+  return <div className="draft-editor"><nav className="draft-navigation" aria-label="Message review">
+    <span>{message.status === "draft" ? "Draft" : "Message"} {position + 1} of {total}</span>
+    <div className="button-row"><button className="button secondary small" disabled={busy || position === 0} onClick={() => onNavigate(position - 1)}>Previous</button>
+      <button className="button secondary small" disabled={busy || position === total - 1} onClick={() => onNavigate(position + 1)}>Next</button></div>
+    </nav><div className="draft-header"><div><div className="mini-label">{message.kind === "followup" ? "FOLLOW-UP DRAFT" : "INITIAL OUTREACH"}</div><h3>{message.recipientName || message.to}</h3><p>{message.to}</p></div><div className="button-row">
       {message.status === "draft" && campaign.status === "draft" && <button className="button secondary small" disabled={busy || !subject.trim() || !body.trim()} onClick={async () => {
         const result = await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id + "/preview", {
           method: "POST",
@@ -103,21 +131,14 @@ function DraftEditor({
         if (result) setPreview(result);
       }}>Preview email</button>}
       <Badge value={message.status} /></div></div>
-    {editable ? <><Field label="Subject"><input value={subject} maxLength={200} onChange={e => setSubject(e.target.value)} /></Field><Field label="Message"><textarea className="email-editor" rows={12} value={body} maxLength={12000} onChange={e => setBody(e.target.value)} /></Field><div className="editor-footer"><span>{body.split(/\s+/).filter(Boolean).length} words · Saved only when you click Save</span><div className="button-row"><button className="button secondary small" disabled={busy || !settings?.aiEnabled} title={!settings?.aiEnabled ? "Enable AI in server configuration first" : "Uses one monthly AI draft"} onClick={async () => {
-            if (body !== message.body && !window.confirm("Replace your unsaved text with an AI draft?")) return;
+    {editable ? <><Field label="Subject"><input disabled={busy} value={subject} maxLength={200} onChange={e => setSubject(e.target.value)} /></Field><Field label="Message"><textarea className="email-editor" rows={12} disabled={busy} value={body} maxLength={12000} onChange={e => setBody(e.target.value)} /></Field><div className="editor-footer"><span><span className={`draft-save-status ${dirty ? "unsaved" : ""}`} role="status">{dirty ? "Unsaved changes" : "Saved"}</span> · {body.split(/\s+/).filter(Boolean).length} words</span><div className="button-row"><button className="button secondary small" disabled={busy || !settings?.aiEnabled} title={!settings?.aiEnabled ? "Enable AI in server configuration first" : "Uses one monthly AI draft"} onClick={async () => {
+            if (dirty && !window.confirm("Replace your unsaved text with an AI draft?")) return;
             if (await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id + "/generate", {
               method: "POST"
-            }), "AI draft ready for review.")) onSaved();
-          }}><Icon name="spark" size={15} /> AI draft</button><button className="button primary small" disabled={busy || !body.trim() || !subject.trim()} onClick={async () => {
-            if (await perform(() => api("/campaigns/" + campaign._id + "/messages/" + message._id, {
-              method: "PATCH",
-              body: {
-                subject,
-                body
-              }
-            }), "Draft saved.")) onSaved();
-          }}>Save draft</button></div></div></> : <><h4>{message.subject}</h4><div className="email-body">{message.body}</div>{message.error && <p className="inline-warning">{message.error}</p>}<div className="message-foot">Accepted: {dateTime(message.acceptedAt)} · Delivery: {message.deliveryStatus || "unknown"}</div></>}
-    {preview && <EmailPreview preview={preview} unsaved={editable && (subject !== message.subject || body !== message.body)} onClose={() => setPreview(null)} />}
+            }), "AI draft ready for review.")) onSaved(message._id);
+          }}><Icon name="spark" size={15} /> AI draft</button><button className="button secondary small" disabled={busy || !dirty || !body.trim() || !subject.trim()} onClick={() => save()}>Save draft</button>
+          {nextId && <button className="button primary small" disabled={busy || !body.trim() || !subject.trim()} onClick={() => save(true)}>Save &amp; next</button>}</div></div></> : <><h4>{message.subject}</h4><div className="email-body">{message.body}</div>{message.error && <p className="inline-warning">{message.error}</p>}<div className="message-foot">Accepted: {dateTime(message.acceptedAt)} · Delivery: {message.deliveryStatus || "unknown"}</div></>}
+    {preview && <EmailPreview preview={preview} unsaved={dirty} onClose={() => setPreview(null)} />}
   </div>;
 }
 function CampaignDetail({
@@ -135,6 +156,9 @@ function CampaignDetail({
     reload
   } = useResource("/campaigns/" + id);
   const [selected, setSelected] = useState(null);
+  const leaveGuardRef = useRef(() => ({ busy: false, dirty: false }));
+  const [editorRevision, setEditorRevision] = useState(0);
+  const [pendingLeave, setPendingLeave] = useState(null);
   const {
     busy,
     perform
@@ -143,13 +167,38 @@ function CampaignDetail({
     reload();
     changed();
   };
+  const requestLeave = action => {
+    const editor = leaveGuardRef.current();
+    if (busy || editor.busy) {
+      notify("Wait for the current draft action to finish.", "error");
+      return;
+    }
+    if (editor.dirty) setPendingLeave({ action });
+    else action();
+  };
+  const close = () => requestLeave(onClose);
+  const reviewRefresh = () => requestLeave(() => {
+    setEditorRevision(value => value + 1);
+    refresh();
+  });
+
   if (error) return <Modal title="Campaign" onClose={onClose}><ResourceError message={error} retry={reload} /></Modal>;
   if (loading || !data) return <Modal title="Campaign" onClose={onClose} wide><Loading /></Modal>;
   const message = data.messages.find(m => m._id === selected) || data.messages.find(m => m.status === "draft") || data.messages[0];
+  const position = data.messages.findIndex(m => m._id === message?._id);
+  const navigate = index => {
+    if (data.messages[index] && index !== position) requestLeave(() => setSelected(data.messages[index]._id));
+  };
+  const saved = nextId => { setSelected(nextId); refresh(); };
   const admin = user.role === "admin";
-  return <Modal title={data.name} subtitle={data.audience + " campaign · " + data.total + " messages"} onClose={onClose} wide>
+  return <><Modal title={data.name} subtitle={data.audience + " campaign · " + data.total + " messages"} onClose={close} wide>
     <div className="campaign-detail-top"><Badge value={data.status} /><div className="button-row">
       {admin && data.status === "draft" && <button className="button primary small" disabled={busy || !settings?.sendingEnabled} onClick={async () => {
+          const editor = leaveGuardRef.current();
+          if (editor.busy || editor.dirty) {
+            notify("Save or discard your current edits before approving the campaign.", "error");
+            return;
+          }
           if (!window.confirm("Approve and queue ALL saved drafts in this campaign? Unsaved edits are not included. Messages will send when background jobs are enabled.")) return;
           if (await perform(() => api("/campaigns/" + id + "/launch", {
             method: "POST",
@@ -175,13 +224,24 @@ function CampaignDetail({
             refresh();
           }
         }}>Prepare due follow-ups</button>}
-      <button className="button secondary small" onClick={refresh}>Refresh</button>
+      <button className="button secondary small" disabled={busy} onClick={reviewRefresh}>Refresh</button>
     </div></div>
     {!settings?.sendingEnabled && <div className="draft-mode-note"><Icon name="team" size={16} /> Sending is disabled. Drafts can be reviewed and saved.</div>}
     {["queued", "running"].includes(data.status) && !settings?.jobsEnabled && <div className="draft-mode-note">Background jobs are disabled. Approved messages remain queued.</div>}
     {!admin && data.status === "draft" && <div className="draft-mode-note">An administrator must approve this campaign before it can send.</div>}
-    {message ? <div className="review-layout"><aside className="recipient-list"><div className="mini-label">RECIPIENTS</div>{data.messages.map(m => <button key={m._id} className={message._id === m._id ? "selected" : ""} onClick={() => setSelected(m._id)}><strong>{m.recipientName || m.to}</strong><span>{m.company || m.to}</span><Badge value={m.status} /></button>)}</aside><DraftEditor key={message._id + message.updatedAt} message={message} campaign={data} notify={notify} onSaved={refresh} canWrite={user.role !== "viewer"} settings={settings} /></div> : <Empty title="No messages in this campaign" description="This campaign was interrupted during creation. Create another campaign with your leads." />}
-  </Modal>;
+    {message ? <div className="review-layout"><aside className="recipient-list"><div className="mini-label">RECIPIENTS</div>{data.messages.map(m => <button key={m._id} className={message._id === m._id ? "selected" : ""} onClick={() => navigate(data.messages.indexOf(m))} aria-current={message._id === m._id ? "true" : undefined}><strong>{m.recipientName || m.to}</strong><span>{m.company || m.to}</span><Badge value={m.status} /></button>)}</aside><DraftEditor key={message._id + message.updatedAt + editorRevision} message={message} campaign={data} notify={notify} onSaved={saved} canWrite={user.role !== "viewer"} settings={settings} leaveGuardRef={leaveGuardRef} position={position} total={data.messages.length} onNavigate={navigate} nextId={data.messages[position + 1]?._id} /></div> : <Empty title="No messages in this campaign" description="This campaign was interrupted during creation. Create another campaign with your leads." />}
+  </Modal>
+    {pendingLeave && <Modal title="Unsaved draft changes" subtitle="Save your draft first, or discard your edits to continue." onClose={() => setPendingLeave(null)}>
+      <div className="modal-content"><p>Your changes have not been saved.</p>
+        <div className="modal-actions"><button className="button secondary" autoFocus onClick={() => setPendingLeave(null)}>Keep editing</button>
+          <button className="button danger" onClick={() => {
+            const action = pendingLeave.action;
+            setPendingLeave(null);
+            action();
+          }}>Discard changes</button></div>
+      </div>
+    </Modal>}
+  </>;
 }
 export default function Campaigns({ version, changed, notify, user, settings }) {
   const [creating, setCreating] = useState(false);
